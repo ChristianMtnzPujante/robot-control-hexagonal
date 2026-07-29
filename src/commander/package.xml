@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>commander</name>
+  <version>0.0.1</version>
+  <description>Comandante: crea ControlSession (robot_node + controller_node emparejados), manda objetivos y escucha feedback</description>
+  <maintainer email="chris@example.com">chris</maintainer>
+  <license>Apache-2.0</license>
+
+  <depend>rclpy</depend>
+  <depend>geometry_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>shared_kernel</depend>
+  <depend>robot_node</depend>
+  <depend>controller_node</depend>
+
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
