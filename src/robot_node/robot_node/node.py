@@ -7,31 +7,12 @@ dos, sin recompilar nada.
 
 from __future__ import annotations
 
-import rclpy
 from rclpy.node import Node
+from ros2_kit import run_node, to_joint_configuration, to_joint_state_msg
 from sensor_msgs.msg import JointState
-
-from shared_kernel import JointConfiguration, JointPosition
 
 from .adapters.coppeliasim_adapter import CoppeliaSimRobotAdapter
 from .adapters.cr5_real_adapter import Cr5RealRobotAdapter
-
-
-def _to_joint_configuration(msg: JointState) -> JointConfiguration:
-    positions = [
-        JointPosition(name, angle) for name, angle in zip(msg.name, msg.position)
-    ]
-    result = JointConfiguration.create(positions)
-    if result.is_left():
-        raise ValueError(str(result.value))
-    return result.value
-
-
-def _to_joint_state_msg(configuration: JointConfiguration) -> JointState:
-    msg = JointState()
-    msg.name = [p.joint_name for p in configuration.positions]
-    msg.position = [p.angle_radians for p in configuration.positions]
-    return msg
 
 
 class RobotNode(Node):
@@ -70,22 +51,16 @@ class RobotNode(Node):
         raise ValueError(f'robot_target desconocido: "{target}"')
 
     def _on_joint_command(self, msg: JointState) -> None:
-        configuration = _to_joint_configuration(msg)
+        configuration = to_joint_configuration(msg)
         self._robot_controller.set_joints(configuration)
 
     def _publish_state(self) -> None:
         configuration = self._robot_controller.get_current_configuration()
-        self._state_pub.publish(_to_joint_state_msg(configuration))
+        self._state_pub.publish(to_joint_state_msg(configuration))
 
 
 def main(args=None):
-    rclpy.init(args=args)
-    node = RobotNode()
-    try:
-        rclpy.spin(node)
-    finally:
-        node.destroy_node()
-        rclpy.shutdown()
+    run_node(RobotNode, args=args)
 
 
 if __name__ == "__main__":

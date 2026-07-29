@@ -12,6 +12,7 @@ from typing import Dict, List
 import rclpy
 from geometry_msgs.msg import Pose as PoseMsg
 from rclpy.node import Node
+from ros2_kit import shutdown_node, to_pose_msg
 from std_msgs.msg import String
 
 from shared_kernel import Pose
@@ -58,15 +59,7 @@ class Commander(Node):
         self.get_logger().info(f"[{session_name}] {payload}")
 
     def send_goal(self, session_name: str, goal: Pose) -> None:
-        msg = PoseMsg()
-        msg.position.x = goal.x
-        msg.position.y = goal.y
-        msg.position.z = goal.z
-        msg.orientation.x = goal.qx
-        msg.orientation.y = goal.qy
-        msg.orientation.z = goal.qz
-        msg.orientation.w = goal.qw
-        self._goal_publishers[session_name].publish(msg)
+        self._goal_publishers[session_name].publish(to_pose_msg(goal))
 
     def close_session(self, session_name: str) -> None:
         self._sessions[session_name].stop()
@@ -97,8 +90,7 @@ def main(args=None):
         rclpy.spin(commander)
     finally:
         commander.close_session("demo")
-        commander.destroy_node()
-        rclpy.shutdown()
+        shutdown_node(commander)
 
 
 if __name__ == "__main__":

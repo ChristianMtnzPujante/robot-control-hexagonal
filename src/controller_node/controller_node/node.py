@@ -9,44 +9,18 @@ from __future__ import annotations
 import json
 from typing import Optional
 
-import rclpy
 from geometry_msgs.msg import Pose as PoseMsg
 from rclpy.node import Node
+from ros2_kit import run_node, to_joint_configuration, to_joint_state_msg, to_pose
 from sensor_msgs.msg import JointState
 from std_msgs.msg import String
 
-from shared_kernel import JointConfiguration, JointPosition, Pose
+from shared_kernel import JointConfiguration
 
 from .adapters.dh_adapter import DhKinematicsAdapter
 from .adapters.ga_adapter import GaKinematicsAdapter
 from .adapters.naive_test_adapter import NaiveTestKinematicsAdapter
 from .adapters.poe_adapter import PoeKinematicsAdapter
-
-
-def _to_pose(msg: PoseMsg) -> Pose:
-    return Pose(
-        x=msg.position.x,
-        y=msg.position.y,
-        z=msg.position.z,
-        qx=msg.orientation.x,
-        qy=msg.orientation.y,
-        qz=msg.orientation.z,
-        qw=msg.orientation.w,
-    )
-
-
-def _to_joint_configuration(msg: JointState) -> JointConfiguration:
-    positions = [
-        JointPosition(name, angle) for name, angle in zip(msg.name, msg.position)
-    ]
-    return JointConfiguration.create(positions).value
-
-
-def _to_joint_state_msg(configuration: JointConfiguration) -> JointState:
-    msg = JointState()
-    msg.name = [p.joint_name for p in configuration.positions]
-    msg.position = [p.angle_radians for p in configuration.positions]
-    return msg
 
 
 class ControllerNode(Node):
@@ -88,7 +62,7 @@ class ControllerNode(Node):
         raise ValueError(f'strategy desconocida: "{strategy}"')
 
     def _on_joint_states(self, msg: JointState) -> None:
-        self._latest_configuration = _to_joint_configuration(msg)
+        self._latest_configuration = to_joint_configuration(msg)
 
     def _publish_feedback(self, status: str, **extra) -> None:
         payload = {"status": status, **extra}
@@ -99,7 +73,7 @@ class ControllerNode(Node):
             self._publish_feedback("error", reason="sin estado del robot todavía")
             return
 
-        goal = _to_pose(msg)
+        goal = to_pose(msg)
         self._publish_feedback("calculando")
         trajectory = self._kinematics.compute_trajectory(
             goal, self._latest_configuration
@@ -111,7 +85,7 @@ class ControllerNode(Node):
         if not self._pending_waypoints:
             return
         waypoint = self._pending_waypoints.pop(0)
-        self._command_pub.publish(_to_joint_state_msg(waypoint))
+        self._command_pub.publish(to_joint_state_msg(waypoint))
         self._publish_feedback(
             "waypoint_enviado", restantes=len(self._pending_waypoints)
         )
@@ -120,13 +94,7 @@ class ControllerNode(Node):
 
 
 def main(args=None):
-    rclpy.init(args=args)
-    node = ControllerNode()
-    try:
-        rclpy.spin(node)
-    finally:
-        node.destroy_node()
-        rclpy.shutdown()
+    run_node(ControllerNode, args=args)
 
 
 if __name__ == "__main__":

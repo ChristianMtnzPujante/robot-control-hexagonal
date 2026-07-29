@@ -25,10 +25,20 @@ CoppeliaSim, y en el futuro real), sobre ROS2 Humble.
 ```
 src/
 ├── shared_kernel/     dominio puro (value objects, Either, Trajectory, puertos) — sin ROS2
+├── ros2_kit/           infraestructura ROS2 compartida: mensajes <-> dominio, ciclo de vida de nodos
+├── ros1_kit/           BOCETO sin usar: construir/gestionar un puente ros1_bridge programáticamente
 ├── robot_node/         paquete ROS2: adaptador ROS2 alrededor de RobotControllerPort
 ├── controller_node/    paquete ROS2: adaptador ROS2 alrededor de KinematicsPort
 └── commander/          paquete ROS2: ControlSession + Commander
 ```
+
+`ros2_kit` existe para que `robot_node`/`controller_node`/`commander` no
+repitan la conversión de mensajes ni el ciclo de vida de `rclpy` — pero
+`shared_kernel` sigue sin depender de él ni de ROS2 en absoluto. `ros1_kit`
+es un boceto deliberadamente sin conectar a nada todavía (piensa en el día
+que haga falta un puente `ros1_bridge` hacia el driver oficial del CR5,
+que es ROS1) — mismo principio: cuando exista, ninguno de los dos
+tocará `shared_kernel`.
 
 Los puertos son `typing.Protocol`, no `ABC` — un adaptador no necesita heredar
 de nada, solo implementar los métodos exigidos (duck typing, verificado

@@ -13,6 +13,7 @@
   <depend>shared_kernel</depend>
   <depend>robot_node</depend>
   <depend>controller_node</depend>
+  <depend>ros2_kit</depend>
 
   <test_depend>python3-pytest</test_depend>
 
