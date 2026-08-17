@@ -1,41 +1,18 @@
 """Cinemática vía Product of Exponentials (Explicit-Robotics, Nah & Lachner).
 
-Twists S_i=(w_i, v_i) extraídos de los `<origin>`/`<axis>` de cada `<joint>`
-del URDF del CR5 (`~/ros2_ws/src/TCP-IP-ROS-6AXis/dobot_description/urdf/
-cr5_robot.urdf`, el mismo mecanismo que la escena `cr5_base.ttt` ya
-importada en CoppeliaSim), en su configuración home (todos los ángulos a
-cero): las seis articulaciones son revolutas con eje local Z, así que cada
-twist en el frame espacial (`base_link`) es w_i = R_i·ẑ, v_i = -w_i × q_i,
-con (R_i, q_i) la orientación/posición home del frame de la articulación i,
-acumulando las transformadas `origin` del URDF en orden de cadena.
-`_JOINT_ORIGINS` son esos valores tal cual constan en el URDF -- así el
-cálculo de los twists queda auditable contra la fuente en vez de
-esconderse en constantes ya derivadas. `M` (`_HOME_POSE`) es la pose home
-de `Link6` (mismo tip que usa `coppeliasim_ik_adapter.py` como
-`Link6_visual`).
+Twists S_i=(w_i, v_i) extraídos de los `<origin>` del URDF del CR5 (ver
+`_JOINT_ORIGINS`), en configuración home: w_i=R_i·ẑ, v_i=-w_i×q_i. IK por
+Newton-Raphson sobre el Jacobiano espacial vía la Adjunta (Lynch & Park,
+*Modern Robotics*, cap. 6, `IKinSpace`), con paso amortiguado
+(Levenberg-Marquardt, Wampler 1986) en vez de pseudoinversa pura -- el CR5
+tiene muñeca esférica y una singularidad real en joint5≈0 (ejes de joint4
+y joint6 paralelos ahí) donde la pseudoinversa sin amortiguar dispara el
+paso. Derivación completa función a función, con diagrama del mecanismo:
+ver notas aparte (no versionadas en el repo).
 
-IK por Newton-Raphson sobre el Jacobiano espacial vía la Adjunta, tal como
-se dedujo a mano en las sesiones de teoría (Lynch & Park, *Modern
-Robotics*, cap. 6, `IKinSpace`): en cada iteración se calcula el twist de
-error en frame espacial Vs = Ad_{T_sb}·log(T_sb⁻¹·T_sd) y se actualiza
-θ. El paso usa mínimos cuadrados amortiguados (Levenberg-Marquardt /
-damped least squares, Wampler 1986) en vez de la pseudoinversa pura de
-J_s(θ): θ ← θ + J_sᵀ(J_s J_sᵀ + λ²I)⁻¹Vs, con λ² escalado por ‖Vs‖² para que
-la amortiguación desaparezca según se acerca a la solución. Sigue siendo
-"Newton-Raphson sobre el Jacobiano" -- es la estabilización numérica
-estándar del mismo paso, necesaria porque el CR5 tiene muñeca esférica
-(joints 4-5-6 con ejes que se cortan en un punto) y por tanto una
-singularidad de muñeca real en joint5≈0 (los ejes de joint4 y joint6 quedan
-paralelos ahí, ver también docs/algebra_geometrica_conforme.md §5 sobre la
-misma muñeca esférica); sin amortiguación, la pseudoinversa puede disparar
-el paso al pasar cerca. Si aun así no converge en el número de iteraciones
-dado, se lanza un error explícito, igual que `coppeliasim_ik_adapter.py`
-cuando `simIK` no converge.
-
-Ver docs/algebra_geometrica_conforme.md §4: estos mismos twists (t_i, B_i
-en notación CGA) son la entrada que necesitaría `GaKinematicsAdapter` --
-extraerlos aquí ya cubre ese trabajo para cuando se implemente ese
-adaptador, no hace falta re-derivarlos aparte.
+Ver docs/algebra_geometrica_conforme.md §4: estos mismos twists son la
+entrada que necesitaría `GaKinematicsAdapter` -- no hace falta
+re-derivarlos aparte cuando se implemente.
 """
 
 from __future__ import annotations
@@ -67,7 +44,9 @@ _JOINT_NAMES: Tuple[str, ...] = (
 # Para soportar otro robot sin tocar este archivo, lo general sería parsear
 # el .urdf en tiempo de carga (p.ej. con `urdf_parser_py`) y extraer
 # xyz/rpy/axis de cada <joint> automáticamente, en vez de mantener esta
-# constante a mano por robot.
+# constante a mano por robot. Igual que `_JOINT_NAMES` y el 6×6 fijo de
+# `_jacobian_space`/`_adjoint` (asumen exactamente 6 revolutas) -- ver
+# ROADMAP.md, Bloque 9.
 _JOINT_ORIGINS: Tuple[Tuple[Tuple[float, float, float], Tuple[float, float, float]], ...] = (
     ((0.0, 0.0, 0.147), (0.0, 0.0, 0.0)),
     ((0.0, 0.0, 0.0), (1.5708, 1.5708, 0.0)),

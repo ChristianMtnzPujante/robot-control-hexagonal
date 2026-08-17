@@ -11,16 +11,18 @@ from typing import Optional
 
 from geometry_msgs.msg import Pose as PoseMsg
 from rclpy.node import Node
-from ros2_kit import run_node, to_joint_configuration, to_joint_state_msg, to_pose
+from ros2_kit import GOAL_QOS, run_node, to_joint_configuration, to_joint_state_msg, to_pose
 from sensor_msgs.msg import JointState
 from std_msgs.msg import String
 
-from shared_kernel import JointConfiguration
+from shared_kernel import JointConfiguration, Pose
 
+from .adapters.coppeliasim_ik_adapter import CoppeliaSimIkKinematicsAdapter
 from .adapters.dh_adapter import DhKinematicsAdapter
 from .adapters.ga_adapter import GaKinematicsAdapter
 from .adapters.naive_test_adapter import NaiveTestKinematicsAdapter
 from .adapters.poe_adapter import PoeKinematicsAdapter
+from .adapters.straight_line_adapter import StraightLineKinematicsAdapter
 
 
 class ControllerNode(Node):
@@ -35,9 +37,17 @@ class ControllerNode(Node):
 
         self._latest_configuration: Optional[JointConfiguration] = None
         self._pending_waypoints: list = []
+        # Objetivo recibido antes de tener el primer joint_states -- se
+        # procesa en cuanto llega (ver _on_joint_states), en vez de
+        # descartarse. Junto con GOAL_QOS (que evita perder el mensaje si
+        # el Commander publica antes de que este nodo se haya suscrito),
+        # esto elimina la condición de carrera de arranque por completo:
+        # ya no importa en qué orden arranquen commander/controller_node/
+        # robot_node.
+        self._pending_goal: Optional[Pose] = None
 
         self._goal_sub = self.create_subscription(
-            PoseMsg, "goal", self._on_goal, 10
+            PoseMsg, "goal", self._on_goal, GOAL_QOS
         )
         self._state_sub = self.create_subscription(
             JointState, "joint_states", self._on_joint_states, 10
@@ -51,6 +61,11 @@ class ControllerNode(Node):
         self.get_logger().info(f'controller_node listo, strategy="{strategy}"')
 
     def _build_adapter(self, strategy: str):
+        # Todos los adaptadores se construyen sin argumentos -- no hay
+        # ningún parámetro ROS2 aquí para decir "qué robot" (joint_names,
+        # tip, twists...); ControlSession tampoco reenvía esos datos a
+        # controller_node hoy (ver control_session.py::start()). Ver
+        # ROADMAP.md, Bloque 9.
         if strategy == "poe":
             return PoeKinematicsAdapter()
         if strategy == "ga":
@@ -59,21 +74,33 @@ class ControllerNode(Node):
             return DhKinematicsAdapter()
         if strategy == "naive_test":
             return NaiveTestKinematicsAdapter()
+        if strategy == "straight_line":
+            return StraightLineKinematicsAdapter()
+        if strategy == "coppeliasim_ik":
+            return CoppeliaSimIkKinematicsAdapter()
         raise ValueError(f'strategy desconocida: "{strategy}"')
 
     def _on_joint_states(self, msg: JointState) -> None:
         self._latest_configuration = to_joint_configuration(msg)
+        if self._pending_goal is not None:
+            goal, self._pending_goal = self._pending_goal, None
+            self._start_trajectory(goal)
 
     def _publish_feedback(self, status: str, **extra) -> None:
         payload = {"status": status, **extra}
         self._feedback_pub.publish(String(data=json.dumps(payload)))
 
     def _on_goal(self, msg: PoseMsg) -> None:
-        if self._latest_configuration is None:
-            self._publish_feedback("error", reason="sin estado del robot todavía")
-            return
-
         goal = to_pose(msg)
+        if self._latest_configuration is None:
+            # Todavía no ha llegado joint_states -- se guarda y se procesa
+            # en cuanto llegue (ver _on_joint_states), no se descarta.
+            self._pending_goal = goal
+            self._publish_feedback("esperando_estado_robot")
+            return
+        self._start_trajectory(goal)
+
+    def _start_trajectory(self, goal: Pose) -> None:
         self._publish_feedback("calculando")
         trajectory = self._kinematics.compute_trajectory(
             goal, self._latest_configuration

@@ -12,7 +12,7 @@ from typing import Dict, List
 import rclpy
 from geometry_msgs.msg import Pose as PoseMsg
 from rclpy.node import Node
-from ros2_kit import shutdown_node, to_pose_msg
+from ros2_kit import GOAL_QOS, shutdown_node, to_pose_msg
 from std_msgs.msg import String
 
 from shared_kernel import Pose
@@ -32,6 +32,9 @@ class Commander(Node):
         robot_target: str,
         controller_strategy: str,
         joint_names: List[str],
+        waypoint_period_seconds: float = 0.5,
+        tip_name: str = "",
+        scene_path: str = "",
     ) -> ControlSession:
         namespace = f"/session_{name}"
         session = ControlSession(
@@ -39,12 +42,15 @@ class Commander(Node):
             robot_target=robot_target,
             controller_strategy=controller_strategy,
             joint_names=joint_names,
+            waypoint_period_seconds=waypoint_period_seconds,
+            tip_name=tip_name,
+            scene_path=scene_path,
         )
         session.start()
         self._sessions[name] = session
 
         self._goal_publishers[name] = self.create_publisher(
-            PoseMsg, f"{namespace}/goal", 10
+            PoseMsg, f"{namespace}/goal", GOAL_QOS
         )
         self.create_subscription(
             String,
@@ -68,8 +74,32 @@ class Commander(Node):
 
 
 def main(args=None):
-    """Demo mínima: crea una sesión de prueba (naive_test + simulado),
-    manda un objetivo cualquiera y se queda escuchando el feedback.
+    """Demo mínima: crea una sesión (coppeliasim_ik + simulado), manda un
+    objetivo cartesiano y se queda escuchando el feedback. `tip_name` debe
+    coincidir con un objeto de la escena cuya posición cartesiana sirva de
+    referencia del extremo del brazo: cr5_base.ttt no trae un dummy "tip"
+    dedicado, así que se usa "Link6_visual" (el último eslabón visual,
+    justo antes del efector final) como aproximación -- si algún día se
+    añade un dummy tip/TCP propio a la escena, cambiar esto por su nombre
+    (y por el mismo motivo, CoppeliaSimIkKinematicsAdapter usa ese nombre
+    por defecto como tip para simIK). Esta clase de suposición ad-hoc por
+    escena (qué objeto sirve de tip si la escena no lo declara) es
+    justo lo que haría falta resolver por convención/manifest para cargar
+    una escena arbitraria -- ver ROADMAP.md, Bloque 9. `joint_names` y
+    `tip_name` sí son ya parámetros de `create_session`, así que esta
+    función `main()` es solo el demo hardcodeado, no una limitación de la
+    API en sí.
+
+    El objetivo está deliberadamente cerca de la posición actual del brazo
+    (unos 10cm) -- simIK resuelve por iteración local desde la
+    configuración actual, y para saltos grandes puede no converger (ver
+    coppeliasim_ik_adapter.py). Si cambias este Pose y la sesión falla con
+    "simIK no convergió", prueba un objetivo más conservador.
+
+    El goal se manda justo después de arrancar la sesión, sin esperar a
+    que robot_node/controller_node terminen de arrancar (ver GOAL_QOS en
+    ros2_kit y el buffer de `_pending_goal` en controller_node -- ninguno
+    de los dos depende ya de que el orden de arranque coincida).
     """
     rclpy.init(args=args)
     commander = Commander()
@@ -77,14 +107,12 @@ def main(args=None):
     commander.create_session(
         name="demo",
         robot_target="simulado",
-        controller_strategy="naive_test",
+        controller_strategy="coppeliasim_ik",
         joint_names=["joint1", "joint2", "joint3", "joint4", "joint5", "joint6"],
+        waypoint_period_seconds=1.5,  # pausa visible en cada waypoint
+        tip_name="Link6_visual",
     )
-
-    import time
-
-    time.sleep(2.0)  # dar tiempo a que robot_node/controller_node arranquen
-    commander.send_goal("demo", Pose(x=0.3, y=0.0, z=0.5))
+    commander.send_goal("demo", Pose(x=-0.139, y=-0.465, z=0.096))
 
     try:
         rclpy.spin(commander)

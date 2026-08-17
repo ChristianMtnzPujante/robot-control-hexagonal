@@ -25,32 +25,50 @@ class ControlSession:
         robot_target: str,
         controller_strategy: str,
         joint_names: List[str],
+        waypoint_period_seconds: float = 0.5,
+        tip_name: str = "",
+        scene_path: str = "",
     ):
         self.namespace = namespace
         self._robot_target = robot_target
         self._controller_strategy = controller_strategy
         self._joint_names = joint_names
+        self._waypoint_period_seconds = waypoint_period_seconds
+        self._tip_name = tip_name
+        self._scene_path = scene_path
         self._robot_process: Optional[subprocess.Popen] = None
         self._controller_process: Optional[subprocess.Popen] = None
 
     def start(self) -> None:
+        # joint_names/tip_name/scene_path solo se reenvían a robot_node
+        # abajo -- controller_node no recibe ninguno hoy, así que sus
+        # adaptadores (poe/dh/ga/coppeliasim_ik) no pueden variar por
+        # sesión. Ver ROADMAP.md, Bloque 9.
         joint_names_yaml = "[" + ",".join(self._joint_names) + "]"
 
-        self._robot_process = subprocess.Popen(
-            [
-                "ros2", "run", "robot_node", "robot_node",
-                "--ros-args",
-                "-r", f"__ns:={self.namespace}",
-                "-p", f"robot_target:={self._robot_target}",
-                "-p", f"joint_names:={joint_names_yaml}",
-            ]
-        )
+        robot_args = [
+            "ros2", "run", "robot_node", "robot_node",
+            "--ros-args",
+            "-r", f"__ns:={self.namespace}",
+            "-p", f"robot_target:={self._robot_target}",
+            "-p", f"joint_names:={joint_names_yaml}",
+        ]
+        # -p x:= con valor vacío rompe el parseo de argumentos de ROS2
+        # ("Couldn't parse parameter override rule") -- se omiten del todo
+        # en vez de mandarlos vacíos, dejando que declare_parameter use su
+        # propio default ("").
+        if self._tip_name:
+            robot_args += ["-p", f"tip_name:={self._tip_name}"]
+        if self._scene_path:
+            robot_args += ["-p", f"scene_path:={self._scene_path}"]
+        self._robot_process = subprocess.Popen(robot_args)
         self._controller_process = subprocess.Popen(
             [
                 "ros2", "run", "controller_node", "controller_node",
                 "--ros-args",
                 "-r", f"__ns:={self.namespace}",
                 "-p", f"strategy:={self._controller_strategy}",
+                "-p", f"waypoint_period_seconds:={self._waypoint_period_seconds}",
             ]
         )
 
