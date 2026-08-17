@@ -61,6 +61,13 @@ _JOINT_NAMES: Tuple[str, ...] = (
 # (xyz, rpy) de cada <joint><origin> del URDF del CR5, en orden de cadena
 # cinemática parent->child. El <axis> de las seis es siempre "0 0 1" local,
 # así que no hace falta guardarlo aparte.
+#
+# TODO: hardcodeado a mano para el CR5 concreto (copiado del URDF en
+# ~/ros2_ws/src/TCP-IP-ROS-6AXis/dobot_description/urdf/cr5_robot.urdf).
+# Para soportar otro robot sin tocar este archivo, lo general sería parsear
+# el .urdf en tiempo de carga (p.ej. con `urdf_parser_py`) y extraer
+# xyz/rpy/axis de cada <joint> automáticamente, en vez de mantener esta
+# constante a mano por robot.
 _JOINT_ORIGINS: Tuple[Tuple[Tuple[float, float, float], Tuple[float, float, float]], ...] = (
     ((0.0, 0.0, 0.147), (0.0, 0.0, 0.0)),
     ((0.0, 0.0, 0.0), (1.5708, 1.5708, 0.0)),
