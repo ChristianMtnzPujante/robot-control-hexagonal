@@ -1,13 +1,15 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>shared_kernel</name>
+  <name>urdf_kit</name>
   <version>0.0.1</version>
-  <description>Dominio compartido (hexagonal/DDD): value objects, Trajectory y puertos, sin dependencias de ROS2</description>
+  <description>Parseo de .urdf a RobotDescription (shared_kernel). No es dominio -- pura conversión de un formato de archivo externo, igual que ros2_kit convierte mensajes ROS2. Sin rclpy: robot_node y controller_node pueden depender de esto sin acoplarse entre sí.</description>
   <maintainer email="chris@example.com">chris</maintainer>
   <license>Apache-2.0</license>
 
-  <depend>geometry_kernel</depend>
+  <depend>shared_kernel</depend>
+  <depend>urdfdom_py</depend>
+  <depend>python3-numpy</depend>
 
   <test_depend>python3-pytest</test_depend>
 

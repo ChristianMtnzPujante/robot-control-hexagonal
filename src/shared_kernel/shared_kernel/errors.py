@@ -21,3 +21,7 @@ class EmptyTrajectoryError(Exception):
 
 class TrajectoryVerificationFailedError(Exception):
     pass
+
+
+class InvalidRobotDescriptionError(Exception):
+    pass

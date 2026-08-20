@@ -1,13 +1,11 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>shared_kernel</name>
+  <name>geometry_kernel</name>
   <version>0.0.1</version>
-  <description>Dominio compartido (hexagonal/DDD): value objects, Trajectory y puertos, sin dependencias de ROS2</description>
+  <description>Primitivas geométricas puras (Pose, Point, Plane, obstáculos, Scene), compartidas entre el contexto de ejecución/cinemática (shared_kernel) y el de percepción (pendiente) -- sin ROS2, sin depender de shared_kernel.</description>
   <maintainer email="chris@example.com">chris</maintainer>
   <license>Apache-2.0</license>
-
-  <depend>geometry_kernel</depend>
 
   <test_depend>python3-pytest</test_depend>
 

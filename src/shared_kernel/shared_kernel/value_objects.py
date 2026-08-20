@@ -58,16 +58,3 @@ class JointConfiguration:
             if p.joint_name == joint_name:
                 return p.angle_radians
         raise KeyError(f'No hay ninguna articulación llamada "{joint_name}"')
-
-
-@dataclass(frozen=True)
-class Pose:
-    """Un objetivo cartesiano: posición + orientación (cuaternión)."""
-
-    x: float
-    y: float
-    z: float
-    qx: float = 0.0
-    qy: float = 0.0
-    qz: float = 0.0
-    qw: float = 1.0

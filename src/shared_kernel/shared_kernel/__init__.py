@@ -1,13 +1,22 @@
+from geometry_kernel import Plane, Point, Pose, Scene, SphereObstacle
+
 from .either import Either, Left, Right, left, right
 from .errors import (
     EmptyJointConfigurationError,
     EmptyTrajectoryError,
     InvalidJointPositionError,
+    InvalidRobotDescriptionError,
     TrajectoryVerificationFailedError,
 )
-from .ports import KinematicsPort, RobotControllerPort
+from .ports import (
+    KinematicsPort,
+    PlannerSelectionPort,
+    PlanningPort,
+    RobotControllerPort,
+)
+from .robot_description import JointDescription, JointType, RobotDescription
 from .trajectory import Trajectory
-from .value_objects import JointConfiguration, JointPosition, Pose
+from .value_objects import JointConfiguration, JointPosition
 
 __all__ = [
     "Either",
@@ -19,10 +28,20 @@ __all__ = [
     "EmptyJointConfigurationError",
     "EmptyTrajectoryError",
     "TrajectoryVerificationFailedError",
+    "InvalidRobotDescriptionError",
     "JointPosition",
     "JointConfiguration",
+    "JointType",
+    "JointDescription",
+    "RobotDescription",
     "Pose",
+    "Point",
+    "Plane",
+    "SphereObstacle",
+    "Scene",
     "Trajectory",
     "RobotControllerPort",
     "KinematicsPort",
+    "PlanningPort",
+    "PlannerSelectionPort",
 ]

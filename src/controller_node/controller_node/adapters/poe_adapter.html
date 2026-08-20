@@ -1,0 +1,586 @@
+<title>Product of Exponentials — CR5</title>
+<style>
+  :root {
+    --bg: #EDF0EF;
+    --surface: #FFFFFF;
+    --surface-2: #E3E8E6;
+    --ink: #16201D;
+    --ink-muted: #55625C;
+    --accent: #0E6E5C;
+    --accent-ink: #FFFFFF;
+    --warn: #B5511C;
+    --warn-bg: #F7E7DD;
+    --rule: #C7CFCB;
+    --code-bg: #E3E8E6;
+    --font-serif: "Iowan Old Style", "Palatino Linotype", "URW Palladio L", Charter, Georgia, serif;
+    --font-mono: "JetBrains Mono", "Cascadia Code", "SF Mono", Consolas, "Liberation Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #101513;
+      --surface: #171E1B;
+      --surface-2: #1E2724;
+      --ink: #E7ECE9;
+      --ink-muted: #93A099;
+      --accent: #4AD1B0;
+      --accent-ink: #08211B;
+      --warn: #E68A4E;
+      --warn-bg: #2A1D14;
+      --rule: #2B3532;
+      --code-bg: #1E2724;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #101513;
+    --surface: #171E1B;
+    --surface-2: #1E2724;
+    --ink: #E7ECE9;
+    --ink-muted: #93A099;
+    --accent: #4AD1B0;
+    --accent-ink: #08211B;
+    --warn: #E68A4E;
+    --warn-bg: #2A1D14;
+    --rule: #2B3532;
+    --code-bg: #1E2724;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-serif);
+    font-size: 17px;
+    line-height: 1.65;
+  }
+  main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 4.5rem 1.5rem 6rem;
+  }
+  .wide {
+    max-width: 940px;
+  }
+
+  code, .mono { font-family: var(--font-mono); }
+  code {
+    background: var(--code-bg);
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+    font-size: 0.88em;
+  }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 0.9rem;
+  }
+  h1 {
+    font-size: clamp(2rem, 1.5rem + 2vw, 2.7rem);
+    line-height: 1.12;
+    margin: 0 0 0.6rem;
+    text-wrap: balance;
+    font-weight: 700;
+  }
+  .dek {
+    color: var(--ink-muted);
+    font-size: 1.12rem;
+    max-width: 58ch;
+    margin: 0 0 3rem;
+  }
+  h2 {
+    font-size: 1.5rem;
+    margin: 3.4rem 0 0.3rem;
+    text-wrap: balance;
+    border-top: 1px solid var(--rule);
+    padding-top: 2rem;
+  }
+  h2 .num {
+    font-family: var(--font-mono);
+    color: var(--accent);
+    font-weight: 500;
+    font-size: 0.95rem;
+    display: block;
+    margin-bottom: 0.35rem;
+    letter-spacing: 0.04em;
+  }
+  h3 {
+    font-family: var(--font-mono);
+    font-size: 0.98rem;
+    font-weight: 600;
+    margin: 2rem 0 0.6rem;
+    color: var(--ink);
+  }
+  p { margin: 0 0 1rem; }
+  .lede-section > p:first-of-type { margin-top: 0; }
+
+  figure { margin: 2.4rem 0; }
+  figcaption {
+    font-size: 0.92rem;
+    color: var(--ink-muted);
+    margin-top: 0.9rem;
+    max-width: 62ch;
+  }
+  svg.diagram {
+    width: 100%;
+    height: auto;
+    display: block;
+    color: var(--ink);
+  }
+  svg.diagram text { font-family: var(--font-mono); }
+  svg.diagram .accent { color: var(--accent); }
+
+  math { font-size: 1.02rem; }
+  .eq-block {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 1.1rem 1.3rem;
+    margin: 1.1rem 0 1.4rem;
+    overflow-x: auto;
+  }
+  .eq-block .note {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--ink-muted);
+    margin-top: 0.5rem;
+  }
+
+  .fn-card {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 1.2rem 1.4rem;
+    margin: 1.2rem 0;
+  }
+  .fn-card .sig {
+    font-family: var(--font-mono);
+    font-size: 0.92rem;
+    color: var(--accent);
+    margin: 0 0 0.55rem;
+    word-break: break-word;
+  }
+  .fn-card p:last-child { margin-bottom: 0; }
+
+  .callout {
+    border-left: 3px solid var(--warn);
+    background: var(--warn-bg);
+    border-radius: 0 6px 6px 0;
+    padding: 1rem 1.3rem;
+    margin: 1.6rem 0;
+  }
+  .callout .label {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--warn);
+    display: block;
+    margin-bottom: 0.4rem;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.94rem;
+  }
+  .table-wrap { overflow-x: auto; margin: 1.4rem 0; }
+  th, td {
+    text-align: left;
+    padding: 0.6rem 0.8rem;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  th {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    font-weight: 600;
+  }
+  td.fn { font-family: var(--font-mono); font-size: 0.86rem; white-space: nowrap; }
+  td.fn .when {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 400;
+    color: var(--ink-muted);
+    margin-top: 0.3rem;
+    white-space: normal;
+  }
+  td.io { font-size: 0.86rem; min-width: 17ch; }
+  td.io b { font-family: var(--font-mono); font-weight: 600; color: var(--ink); }
+  td.line { font-family: var(--font-mono); color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+
+  footer {
+    margin-top: 4rem;
+    padding-top: 1.6rem;
+    border-top: 1px solid var(--rule);
+    color: var(--ink-muted);
+    font-size: 0.88rem;
+  }
+  footer code { font-size: 0.85em; }
+
+  ol.steps { padding-left: 1.3rem; }
+  ol.steps li { margin-bottom: 0.5rem; }
+</style>
+
+<main>
+  <p class="eyebrow">controller_node / adapters / poe_adapter.py</p>
+  <h1>El mecanismo de Product of Exponentials</h1>
+  <p class="dek">Cómo N ángulos de articulación (seis, para el CR5) se convierten en la pose del extremo, y cómo el proceso se invierte con Newton-Raphson para ir de un objetivo cartesiano de vuelta a ángulos — función a función, en el orden en que se ejecutan. Los datos del robot (ejes, orígenes) ya no están hardcodeados aquí: llegan como un <code>RobotDescription</code> (shared_kernel).</p>
+
+  <section class="lede-section">
+    <p>El brazo se modela como una cadena de giros rígidos (o deslizamientos, si alguna articulación es prismática). En vez de encadenar matrices Denavit-Hartenberg (un parámetro por convención de ejes, fácil de fijar mal), PoE describe cada articulación por su <strong>eje de giro en el espacio</strong> — un <em>twist</em> — y compone la cadena entera con un único producto de exponenciales de matriz. La ventaja no es solo notacional: FK, Jacobiano e IK salen del <em>mismo</em> objeto algebraico (el twist), en vez de tres derivaciones independientes por convención de ejes.</p>
+    <p>Todo lo de esta página vive en un único archivo, <code>poe_adapter.py</code>. Se ejecuta en dos momentos distintos: <strong>una vez por adaptador</strong>, al construirse <code>PoeKinematicsAdapter</code> (se derivan los twists desde un <code>RobotDescription</code> — por defecto el CR5 hardcodeado, como antes, o el resultado de parsear un <code>.urdf</code> arbitrario con <code>urdf_kit.parse_urdf_file</code>); y <strong>en cada llamada</strong> a <code>compute_trajectory</code>, donde corre el bucle de Newton-Raphson. El diagrama de abajo muestra ambos.</p>
+  </section>
+
+  <figure class="wide">
+    <svg class="diagram" viewBox="0 0 940 620" role="img" aria-label="Diagrama del mecanismo PoE: arriba, la extracción de twists al construir el adaptador desde un RobotDescription; abajo, el bucle de Newton-Raphson que corre en cada compute_trajectory, con la fila superior calculando el error entre la pose actual y el objetivo, y la fila inferior calculando y aplicando la corrección de ángulos hasta converger.">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+        <marker id="arrowAccent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" class="accent" fill="currentColor"/>
+        </marker>
+      </defs>
+
+      <!-- ===== Setup strip (once per adapter, in __init__) ===== -->
+      <text x="30" y="16" font-size="11" letter-spacing="1.5" fill="currentColor" opacity="0.6">AL CONSTRUIR EL ADAPTADOR — __init__()</text>
+
+      <g font-size="12.5">
+        <rect x="30" y="26" width="190" height="60" rx="5" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <text x="125" y="50" text-anchor="middle" font-weight="700">RobotDescription</text>
+        <text x="125" y="68" text-anchor="middle" font-size="10.5" opacity="0.7">N × (xyz,rpy,axis,tipo)</text>
+
+        <line x1="220" y1="56" x2="278" y2="56" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <text x="249" y="48" text-anchor="middle" font-size="9.5" opacity="0.65">acumula cadena</text>
+
+        <rect x="280" y="26" width="230" height="60" rx="5" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <text x="395" y="50" text-anchor="middle" font-weight="700" font-size="11">_screw_axes_from_description()</text>
+        <text x="395" y="68" text-anchor="middle" font-size="10.5" opacity="0.7">wᵢ = Rᵢ·axisᵢ,  vᵢ = −wᵢ×qᵢ</text>
+
+        <line x1="510" y1="56" x2="568" y2="56" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+        <rect x="570" y="26" width="200" height="60" rx="5" class="accent" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <text x="670" y="46" text-anchor="middle" font-weight="700" font-size="11.5" class="accent">self._screw_axes,</text>
+        <text x="670" y="61" text-anchor="middle" font-weight="700" font-size="11.5" class="accent">self._home_pose</text>
+        <text x="670" y="76" text-anchor="middle" font-size="9" opacity="0.75">S₁…Sₙ  y  M (por instancia)</text>
+      </g>
+
+      <line x1="670" y1="86" x2="670" y2="150" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <text x="680" y="122" font-size="9.5" opacity="0.65">usadas en cada</text>
+      <text x="680" y="134" font-size="9.5" opacity="0.65">iteración de abajo</text>
+
+      <!-- ===== Runtime loop ===== -->
+      <text x="30" y="168" font-size="11" letter-spacing="1.5" fill="currentColor" opacity="0.6">EN CADA compute_trajectory() — BUCLE NEWTON-RAPHSON</text>
+
+      <!-- goal input -->
+      <rect x="520" y="180" width="210" height="46" rx="5" fill="none" stroke="currentColor" stroke-width="1"/>
+      <text x="625" y="199" text-anchor="middle" font-size="11" opacity="0.75">goal (Pose)</text>
+      <text x="625" y="215" text-anchor="middle" font-size="10" opacity="0.6">_pose_to_matrix → T_meta</text>
+      <line x1="625" y1="226" x2="625" y2="260" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+      <g font-size="12.5">
+        <!-- Top row: A -> B -> C -> D -->
+        <rect x="30" y="260" width="150" height="62" rx="5" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <text x="105" y="286" text-anchor="middle" font-weight="700">θ</text>
+        <text x="105" y="303" text-anchor="middle" font-size="10" opacity="0.7">config. articular actual</text>
+
+        <line x1="180" y1="291" x2="238" y2="291" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+        <rect x="240" y="260" width="220" height="62" rx="5" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <text x="350" y="286" text-anchor="middle" font-weight="700">_forward_kinematics(θ)</text>
+        <text x="350" y="303" text-anchor="middle" font-size="10" opacity="0.7">T(θ) = ∏ exp(Ŝᵢθᵢ) · M</text>
+
+        <line x1="460" y1="291" x2="518" y2="291" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+        <rect x="520" y="260" width="210" height="62" rx="5" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <text x="625" y="286" text-anchor="middle" font-weight="700">_matrix_log_se3(·)</text>
+        <text x="625" y="303" text-anchor="middle" font-size="10" opacity="0.7">log(T(θ)⁻¹ · T_meta)</text>
+
+        <line x1="730" y1="291" x2="788" y2="291" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+        <rect x="790" y="260" width="130" height="62" rx="5" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <text x="855" y="286" text-anchor="middle" font-weight="700">_adjoint(T(θ))</text>
+        <text x="855" y="303" text-anchor="middle" font-size="10" opacity="0.7">Vs (error, 6)</text>
+      </g>
+
+      <!-- decision -->
+      <line x1="855" y1="322" x2="855" y2="360" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <polygon points="855,362 915,402 855,442 795,402" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="855" y="398" text-anchor="middle" font-size="10.5">‖Vs‖ &lt;</text>
+      <text x="855" y="411" text-anchor="middle" font-size="10.5">tol?</text>
+
+      <!-- yes -> exit -->
+      <line x1="855" y1="442" x2="855" y2="478" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrowAccent)"/>
+      <text x="866" y="463" font-size="10" opacity="0.7">sí</text>
+      <rect x="740" y="480" width="230" height="56" rx="5" class="accent" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      <text x="855" y="503" text-anchor="middle" font-weight="700" class="accent">converge</text>
+      <text x="855" y="519" text-anchor="middle" font-size="10" opacity="0.8">JointConfiguration → Trajectory.straight_line</text>
+
+      <!-- no -> bottom row -->
+      <line x1="795" y1="402" x2="740" y2="402" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <text x="768" y="393" text-anchor="middle" font-size="10" opacity="0.7">no</text>
+      <line x1="730" y1="402" x2="730" y2="490" stroke="currentColor" stroke-width="1.2"/>
+      <line x1="730" y1="490" x2="628" y2="490" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+      <g font-size="12.5">
+        <rect x="410" y="460" width="220" height="62" rx="5" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <text x="520" y="486" text-anchor="middle" font-weight="700">_jacobian_space(θ)</text>
+        <text x="520" y="503" text-anchor="middle" font-size="10" opacity="0.7">Jₛ(θ), columna a columna</text>
+
+        <line x1="410" y1="491" x2="352" y2="491" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <text x="381" y="482" text-anchor="middle" font-size="9" opacity="0.65">λ²=α‖Vs‖²</text>
+
+        <rect x="130" y="460" width="220" height="62" rx="5" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <text x="240" y="482" text-anchor="middle" font-weight="700">paso amortiguado</text>
+        <text x="240" y="499" text-anchor="middle" font-size="9.5" opacity="0.7">Jᵀ(JJᵀ+λ²I)⁻¹Vs</text>
+      </g>
+
+      <line x1="105" y1="460" x2="105" y2="324" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <text x="60" y="400" font-size="10" opacity="0.7" transform="rotate(-90 60 400)" text-anchor="middle">θ ← θ + paso</text>
+      <line x1="130" y1="491" x2="107" y2="491" stroke="currentColor" stroke-width="1.2"/>
+    </svg>
+    <figcaption>Arriba: los twists se extraen una única vez por adaptador, al construirse <code>PoeKinematicsAdapter</code>. Abajo: el bucle que corre en cada llamada — fila superior, error entre pose actual y objetivo; fila inferior, corrección de ángulos, hasta que <code>‖Vs‖</code> cae bajo tolerancia.</figcaption>
+  </figure>
+
+  <h2><span class="num">Fase 1</span>Extracción de twists — una vez, al construir el adaptador</h2>
+  <p>Cada articulación (revoluta, continua o prismática) tiene su propio eje, leído de <code>JointDescription.axis</code> — ya no se asume Z local fijo como antes. Un <em>twist</em> S=(w,v) describe ese eje visto desde el frame espacial (<code>base_link</code>): <code>w</code> es la dirección del eje (cero, para prismáticas), <code>v</code> codifica dónde pasa (o la dirección de deslizamiento, para prismáticas). <code>_screw_axes_from_description(description)</code> recorre las N articulaciones de un <code>RobotDescription</code> acumulando la transformada de la cadena, y en cada paso lee el eje y la posición del frame resultante:</p>
+
+  <div class="eq-block">
+    <math display="block">
+      <mrow>
+        <msub><mi>w</mi><mi>i</mi></msub><mo>=</mo><msub><mi>R</mi><mi>i</mi></msub><mo>&#183;</mo><msub><mi>axis</mi><mi>i</mi></msub>
+        <mo>,</mo><mspace width="1.5em"/>
+        <msub><mi>v</mi><mi>i</mi></msub><mo>=</mo><mo>&#8722;</mo><msub><mi>w</mi><mi>i</mi></msub><mo>&#215;</mo><msub><mi>q</mi><mi>i</mi></msub>
+      </mrow>
+    </math>
+    <p class="note">Rᵢ, qᵢ = rotación y posición del frame de la articulación i, en configuración home (todos los ángulos a cero). Para prismáticas: wᵢ=0, vᵢ=Rᵢ·axisᵢ (Modern Robotics, tabla 3.3) — mismo bucle, rama distinta dentro de la función.</p>
+  </div>
+
+  <p>El último frame de la cadena (después de las N articulaciones) es <code>self._home_pose</code> — la pose del último eslabón con el brazo en home; es la <code>M</code> de la fórmula de cinemática directa de la fase siguiente. Los N twists quedan en <code>self._screw_axes</code>. A diferencia de antes (constantes de módulo calculadas una vez para todo el proceso), ahora son <strong>atributos de instancia</strong>: cada <code>PoeKinematicsAdapter</code> los calcula una vez en su propio <code>__init__</code> a partir del <code>robot_description</code> recibido, y el resto de la clase solo los lee.</p>
+
+  <div class="callout">
+    <span class="label">Alcance</span>
+    <p>El fallback por defecto (<code>_default_cr5_description()</code>) sigue reproduciendo a mano los mismos datos del CR5 que antes vivían en <code>_JOINT_ORIGINS</code>/<code>_JOINT_NAMES</code> — pero ya no es la única vía: <code>urdf_kit.parse_urdf_file(path, base_link, tip_link)</code> (paquete nuevo <code>urdf_kit</code>) parsea un <code>.urdf</code> arbitrario a un <code>RobotDescription</code> real, plegando cualquier <code>&lt;joint type="fixed"&gt;</code> intermedio. Lo que queda pendiente no es este adaptador, sino el cableado: <code>controller_node/_build_adapter</code> sigue construyendo <code>PoeKinematicsAdapter()</code> sin argumentos (usa el fallback CR5 siempre), y <code>control_session.py</code> no reenvía todavía qué robot cargar por sesión (ver <code>ROADMAP.md</code>, Bloque 9).</p>
+  </div>
+
+  <h2><span class="num">Fase 2</span>Cinemática directa — producto de exponenciales</h2>
+  <p>Con los twists ya extraídos, la pose del extremo para cualquier configuración θ es un único producto:</p>
+
+  <div class="eq-block">
+    <math display="block">
+      <mrow>
+        <mi>T</mi><mo>(</mo><mi>&#952;</mi><mo>)</mo>
+        <mo>=</mo>
+        <munderover><mo>&#8719;</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover>
+        <mi>exp</mi><mo>(</mo>
+        <msub><mover><mi>S</mi><mo>^</mo></mover><mi>i</mi></msub>
+        <msub><mi>&#952;</mi><mi>i</mi></msub>
+        <mo>)</mo>
+        <mo>&#183;</mo><mi>M</mi>
+      </mrow>
+    </math>
+    <p class="note">N = degrees_of_freedom del RobotDescription (N=6 para el CR5; el bucle de _forward_kinematics no cambia con N)</p>
+  </div>
+
+  <p>Cada factor <code>exp(Ŝᵢθᵢ)</code> es un giro rígido (o un deslizamiento, si esa articulación es prismática) de "cantidad" θᵢ alrededor/a lo largo del eje Sᵢ — una "trayectoria de tornillo" a twist constante. Tanto para revolutas/continuas (<code>|w|=1</code>) como para prismáticas (<code>w=0</code>) ese exponencial tiene la misma forma cerrada, la fórmula de Rodrigues extendida a <code>se(3)</code> — no hace falta una rama aparte, el caso <code>w=0</code> colapsa la parte rotacional a la identidad por sí solo:</p>
+
+  <div class="eq-block">
+    <math display="block">
+      <mrow>
+        <mi>R</mi><mo>=</mo><mi>I</mi><mo>+</mo><mi>sin</mi><mi>&#952;</mi><mo>[</mo><mover><mi>w</mi><mo>^</mo></mover><mo>]</mo>
+        <mo>+</mo><mo>(</mo><mn>1</mn><mo>&#8722;</mo><mi>cos</mi><mi>&#952;</mi><mo>)</mo><mo>[</mo><mover><mi>w</mi><mo>^</mo></mover><mo>]</mo><msup><mo></mo><mn>2</mn></msup>
+      </mrow>
+    </math>
+    <math display="block">
+      <mrow>
+        <mi>p</mi><mo>=</mo><mi>G</mi><mi>v</mi>
+        <mo>,</mo><mspace width="1em"/>
+        <mi>G</mi><mo>=</mo><mi>I</mi><mi>&#952;</mi><mo>+</mo><mo>(</mo><mn>1</mn><mo>&#8722;</mo><mi>cos</mi><mi>&#952;</mi><mo>)</mo><mo>[</mo><mover><mi>w</mi><mo>^</mo></mover><mo>]</mo>
+        <mo>+</mo><mo>(</mo><mi>&#952;</mi><mo>&#8722;</mo><mi>sin</mi><mi>&#952;</mi><mo>)</mo><mo>[</mo><mover><mi>w</mi><mo>^</mo></mover><mo>]</mo><msup><mo></mo><mn>2</mn></msup>
+      </mrow>
+    </math>
+  </div>
+
+  <div class="fn-card">
+    <p class="sig">_se3_exp(screw, theta) → T ∈ SE(3)</p>
+    <p>Aplica exactamente las dos fórmulas de arriba para un twist y un ángulo. <code>_forward_kinematics(screw_axes, home_pose, thetas)</code> la llama N veces, acumulando el producto, y multiplica por <code>home_pose</code> al final — es literalmente la fórmula de T(θ) de arriba, una línea por factor; <code>screw_axes</code>/<code>home_pose</code> son <code>self._screw_axes</code>/<code>self._home_pose</code> de la Fase 1.</p>
+  </div>
+
+  <h2><span class="num">Fase 3</span>Error de pose y Jacobiano</h2>
+  <p>Newton-Raphson necesita dos cosas en cada iteración: <strong>cuánto</strong> falta para llegar al objetivo, y <strong>en qué dirección</strong> mover θ para reducir ese error. Lo primero es el inverso de <code>exp</code> — el logaritmo de matriz — aplicado al error entre la pose actual y la deseada:</p>
+
+  <div class="eq-block">
+    <math display="block">
+      <mrow>
+        <mi>V</mi><mo>=</mo><mi>log</mi><mo>(</mo><mi>T</mi><mo>(</mo><mi>&#952;</mi><mo>)</mo><msup><mo></mo><mrow><mo>&#8722;</mo><mn>1</mn></mrow></msup><mo>&#183;</mo><msub><mi>T</mi><mtext>meta</mtext></msub><mo>)</mo>
+      </mrow>
+    </math>
+    <p class="note">un twist: la velocidad instantánea que, aplicada 1 segundo, llevaría T(θ) hasta T_meta</p>
+  </div>
+
+  <div class="fn-card">
+    <p class="sig">_matrix_log_so3(R) / _matrix_log_se3(T) → twist</p>
+    <p>El caso especial cuando <code>θ≈π</code> (comentado en el código como "R es simétrica") no es un parche cosmético: es el punto exacto donde <code>exp</code> deja de ser inyectivo — dos ejes de rotación distintos dan la misma R. Ahí no hay una única solución algebraica y hay que elegir el eje a mano desde <code>R+I</code>.</p>
+  </div>
+
+  <p>Ese error sale expresado en el frame del extremo (<em>body</em>); el Jacobiano que se usa para corregir θ está en frame espacial, así que hay que trasladarlo con la <strong>Adjunta</strong> de la pose actual:</p>
+
+  <div class="eq-block">
+    <math display="block">
+      <mrow>
+        <msub><mi>V</mi><mi>s</mi></msub><mo>=</mo><msub><mi>Ad</mi><mrow><mi>T</mi><mo>(</mo><mi>&#952;</mi><mo>)</mo></mrow></msub><mo>&#183;</mo><mi>V</mi>
+        <mo>,</mo><mspace width="1em"/>
+        <msub><mi>Ad</mi><mi>T</mi></msub><mo>=</mo>
+        <mrow><mo>[</mo>
+          <mtable>
+            <mtr><mtd><mi>R</mi></mtd><mtd><mn>0</mn></mtd></mtr>
+            <mtr><mtd><mo>[</mo><mi>p</mi><mo>]</mo><mi>R</mi></mtd><mtd><mi>R</mi></mtd></mtr>
+          </mtable>
+        <mo>]</mo></mrow>
+      </mrow>
+    </math>
+  </div>
+
+  <p>La misma Adjunta, aplicada a cada twist Sᵢ acumulando el producto hasta (sin incluir) la articulación i, da las columnas del Jacobiano espacial:</p>
+
+  <div class="eq-block">
+    <math display="block">
+      <mrow>
+        <msub><mi>J</mi><mi>i</mi></msub><mo>=</mo><msub><mi>Ad</mi><msub><mi>T</mi><mrow><mi>i</mi><mo>&#8722;</mo><mn>1</mn></mrow></msub></msub><mo>&#183;</mo><msub><mi>S</mi><mi>i</mi></msub>
+      </mrow>
+    </math>
+  </div>
+
+  <div class="fn-card">
+    <p class="sig">_adjoint(T) → 6×6  ·  _jacobian_space(screw_axes, thetas) → 6×N</p>
+    <p><code>_jacobian_space</code> reconstruye el producto parcial columna a columna, en el mismo bucle que ya recorre <code>_forward_kinematics</code> — cada columna usa exactamente el T acumulado hasta ese punto, antes de aplicar el twist de esa articulación. Las filas son siempre 6 (dimensión de <code>se(3)</code>, no depende del robot); las columnas son <code>len(screw_axes)</code> — antes fijo a 6, generalizado para cualquier N.</p>
+  </div>
+
+  <h2><span class="num">Fase 4</span>El paso de Newton-Raphson</h2>
+  <p>Con <code>Vs</code> y el Jacobiano, el paso de Newton clásico sería <code>θ ← θ + Jₛ⁺Vs</code> (pseudoinversa). <code>_inverse_kinematics</code> usa en su lugar mínimos cuadrados amortiguados (Levenberg-Marquardt):</p>
+
+  <div class="eq-block">
+    <math display="block">
+      <mrow>
+        <mi>&#952;</mi><mo>&#8592;</mo><mi>&#952;</mi><mo>+</mo>
+        <msup><mi>J</mi><mi>T</mi></msup><mo>(</mo><mi>J</mi><msup><mi>J</mi><mi>T</mi></msup><mo>+</mo><msup><mi>&#955;</mi><mn>2</mn></msup><mi>I</mi><mo>)</mo><msup><mo></mo><mrow><mo>&#8722;</mo><mn>1</mn></mrow></msup><msub><mi>V</mi><mi>s</mi></msub>
+        <mo>,</mo><mspace width="1em"/>
+        <msup><mi>&#955;</mi><mn>2</mn></msup><mo>=</mo><mi>&#945;</mi><mo>&#8226;</mo><mo>&#8214;</mo><msub><mi>V</mi><mi>s</mi></msub><mo>&#8214;</mo><msup><mo></mo><mn>2</mn></msup>
+      </mrow>
+    </math>
+  </div>
+
+  <div class="callout">
+    <span class="label">Por qué no la pseudoinversa pura</span>
+    <p>El CR5 tiene muñeca esférica (ejes 4-5-6 se cortan en un punto). En <code>joint5≈0</code>, los ejes de joint4 y joint6 quedan paralelos — una singularidad real del mecanismo, no un artefacto numérico. Con la pseudoinversa sin amortiguar, un error pequeño ahí se amplifica en un salto de θ enorme (comprobado: con pseudoinversa pura, un objetivo a 2cm hacía que el error subiera de 0 a 1.5 rad en una sola iteración cerca de esa zona). <code>λ²</code> escala con <code>‖Vs‖²</code> para que la amortiguación desaparezca sola según se acerca a la solución — sigue siendo Newton-Raphson sobre el Jacobiano, solo que estabilizado.</p>
+  </div>
+
+  <p>Cada iteración recalcula <code>T(θ)</code> con la fórmula de la Fase 2, así que si <code>‖Vs‖</code> cae bajo tolerancia el bucle termina y el θ actual se empaqueta en un <code>JointConfiguration</code>; si no, se aplica el paso y se repite. Si se agotan las iteraciones sin converger, se lanza <code>RuntimeError</code> en vez de devolver una trayectoria hacia un sitio equivocado — mismo criterio que <code>coppeliasim_ik_adapter.py</code> cuando <code>simIK</code> no converge.</p>
+
+  <h2><span class="num">Referencia</span>Todas las funciones, en orden de ejecución</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Función</th><th>Entrada</th><th>Salida</th><th>Qué hace</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="fn">_rpy_to_matrix<span class="when">import</span></td>
+          <td class="io"><b>roll, pitch, yaw</b> — ángulos de Euler (rad) del <code>&lt;origin rpy&gt;</code> del URDF</td>
+          <td class="io"><b>R</b> — rotación 3×3</td>
+          <td>rpy del URDF → matriz de rotación (R=Rz·Ry·Rx)</td>
+        </tr>
+        <tr>
+          <td class="fn">_skew<span class="when">import + cada iteración</span></td>
+          <td class="io"><b>v</b> — vector de 3 componentes (un ω o una p)</td>
+          <td class="io"><b>[v]</b> — matriz antisimétrica 3×3</td>
+          <td>construye el operador tal que <code>[v]·u = v×u</code></td>
+        </tr>
+        <tr>
+          <td class="fn">_default_cr5_description<span class="when">import (una vez)</span></td>
+          <td class="io">ninguna — lee <code>_CR5_JOINT_NAMES</code>/<code>_CR5_JOINT_ORIGINS</code>, constantes de módulo</td>
+          <td class="io"><b>RobotDescription</b> — fallback CR5, guardado en <code>_DEFAULT_CR5_DESCRIPTION</code></td>
+          <td>reconstruye como <code>RobotDescription</code> los mismos datos que antes eran <code>_JOINT_ORIGINS</code></td>
+        </tr>
+        <tr>
+          <td class="fn">_screw_axes_from_description<span class="when">__init__ (una vez por adaptador)</span></td>
+          <td class="io"><b>description</b> — <code>RobotDescription</code> (inyectado o el fallback CR5)</td>
+          <td class="io"><b>(screws, M)</b> — N twists de 6 componentes (w;v) + pose home M (4×4)</td>
+          <td>acumula <code>description.joints</code> → N twists S₁…Sₙ + pose home M; usa <code>joint.axis</code> real y soporta prismáticas</td>
+        </tr>
+        <tr>
+          <td class="fn">_se3_exp<span class="when">cada iteración ×N</span></td>
+          <td class="io"><b>screw</b> — twist (w,v), |w|=1 (revolute/continuous) o w=0 (prismatic); <b>theta</b> — valor articular (rad o m)</td>
+          <td class="io"><b>T</b> — pose 4×4, <code>exp(Ŝθ)</code></td>
+          <td>Rodrigues en se(3): un twist + ángulo → T (misma fórmula para revolute y prismatic)</td>
+        </tr>
+        <tr>
+          <td class="fn">_forward_kinematics<span class="when">cada iteración</span></td>
+          <td class="io"><b>screw_axes, home_pose</b> — de <code>self</code> (Fase 1); <b>thetas</b> — N valores articulares</td>
+          <td class="io"><b>T(θ)</b> — pose 4×4 del extremo</td>
+          <td>producto de los N <code>exp(Ŝᵢθᵢ)</code> · home_pose → T(θ)</td>
+        </tr>
+        <tr>
+          <td class="fn">_adjoint<span class="when">cada iteración ×(N+1)</span></td>
+          <td class="io"><b>transform</b> — T ∈ SE(3) (4×4)</td>
+          <td class="io"><b>Ad_T</b> — matriz 6×6</td>
+          <td>T → Ad_T, traslada un twist entre frames (dimensión fija, no depende de N)</td>
+        </tr>
+        <tr>
+          <td class="fn">_jacobian_space<span class="when">cada iteración (si no converge)</span></td>
+          <td class="io"><b>screw_axes</b> — de <code>self</code>; <b>thetas</b> — N valores articulares</td>
+          <td class="io"><b>J_s(θ)</b> — matriz 6×N</td>
+          <td>N columnas Ad_{T_{i-1}}·Sᵢ → J_s(θ)</td>
+        </tr>
+        <tr>
+          <td class="fn">_matrix_log_so3<span class="when">cada iteración</span></td>
+          <td class="io"><b>rotation</b> — R ∈ SO(3) (3×3)</td>
+          <td class="io"><b>θ·[ŵ]</b> — matriz antisimétrica 3×3</td>
+          <td>R → eje·ángulo (maneja el caso θ≈π aparte)</td>
+        </tr>
+        <tr>
+          <td class="fn">_matrix_log_se3<span class="when">cada iteración</span></td>
+          <td class="io"><b>transform</b> — T ∈ SE(3) (4×4)</td>
+          <td class="io"><b>[w;v]·θ</b> — vector de 6 componentes</td>
+          <td>T → twist de error de 6 componentes</td>
+        </tr>
+        <tr>
+          <td class="fn">_quaternion_to_matrix<span class="when">una vez por llamada</span></td>
+          <td class="io"><b>qx, qy, qz, qw</b> — cuaternión del <code>Pose</code> objetivo, no necesariamente normalizado</td>
+          <td class="io"><b>R</b> — rotación 3×3, ya normalizada</td>
+          <td>cuaternión → matriz de rotación</td>
+        </tr>
+        <tr>
+          <td class="fn">_pose_to_matrix<span class="when">una vez por llamada</span></td>
+          <td class="io"><b>pose</b> — <code>Pose</code> objetivo (x,y,z,qx,qy,qz,qw)</td>
+          <td class="io"><b>T_meta</b> — matriz 4×4 ∈ SE(3)</td>
+          <td>Pose → T_meta, listo para restar contra T(θ)</td>
+        </tr>
+        <tr>
+          <td class="fn">_inverse_kinematics<span class="when">una vez por llamada</span></td>
+          <td class="io"><b>goal</b> — <code>Pose</code> objetivo; <b>current_configuration</b> — <code>JointConfiguration</code> actual (punto de partida θ₀)</td>
+          <td class="io"><b>JointConfiguration</b> con los N valores articulares que alcanzan <code>goal</code></td>
+          <td>orquesta el bucle: FK → error → Jacobiano → paso DLS → repetir</td>
+        </tr>
+        <tr>
+          <td class="fn">compute_trajectory<span class="when">API pública (KinematicsPort)</span></td>
+          <td class="io"><b>goal</b> — <code>Pose</code> objetivo; <b>current_configuration</b> — <code>JointConfiguration</code> actual</td>
+          <td class="io"><b>Trajectory</b> — waypoints interpolados en espacio de articulaciones</td>
+          <td>IK + <code>Trajectory.straight_line</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer>
+    Repositorio <code>robot-control-hexagonal</code> · <code>src/controller_node/controller_node/adapters/poe_adapter.py</code>. Fórmulas según Lynch &amp; Park, <em>Modern Robotics</em> (cap. 3 y 6, <code>IKinSpace</code>) y Wampler (1986) para el paso amortiguado. Este adaptador ya acepta un <code>RobotDescription</code> arbitrario (N articulaciones, revolute/continuous/prismatic) vía <code>urdf_kit</code> — lo que queda pendiente es el cableado por sesión (<code>controller_node/_build_adapter</code>, <code>control_session.py</code>), ver <code>ROADMAP.md</code>, Bloque 9.
+  </footer>
+</main>

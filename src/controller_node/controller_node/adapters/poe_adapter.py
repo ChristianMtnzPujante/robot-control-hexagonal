@@ -1,18 +1,30 @@
 """Cinemática vía Product of Exponentials (Explicit-Robotics, Nah & Lachner).
 
-Twists S_i=(w_i, v_i) extraídos de los `<origin>` del URDF del CR5 (ver
-`_JOINT_ORIGINS`), en configuración home: w_i=R_i·ẑ, v_i=-w_i×q_i. IK por
-Newton-Raphson sobre el Jacobiano espacial vía la Adjunta (Lynch & Park,
-*Modern Robotics*, cap. 6, `IKinSpace`), con paso amortiguado
-(Levenberg-Marquardt, Wampler 1986) en vez de pseudoinversa pura -- el CR5
-tiene muñeca esférica y una singularidad real en joint5≈0 (ejes de joint4
-y joint6 paralelos ahí) donde la pseudoinversa sin amortiguar dispara el
-paso. Derivación completa función a función, con diagrama del mecanismo:
-ver notas aparte (no versionadas en el repo).
+Twists S_i=(w_i, v_i) derivados de un `RobotDescription` (shared_kernel) en
+configuración home: w_i=R_i·axis_i, v_i=-w_i×q_i (o v_i=R_i·axis_i para
+articulaciones prismáticas). IK por Newton-Raphson sobre el Jacobiano
+espacial vía la Adjunta (Lynch & Park, *Modern Robotics*, cap. 6,
+`IKinSpace`), con paso amortiguado (Levenberg-Marquardt, Wampler 1986) en
+vez de pseudoinversa pura -- el CR5 tiene muñeca esférica y una
+singularidad real en joint5≈0 (ejes de joint4 y joint6 paralelos ahí) donde
+la pseudoinversa sin amortiguar dispara el paso. Derivación completa
+función a función, con diagrama del mecanismo: ver `poe_adapter.html` en
+este mismo directorio.
+
+El `RobotDescription` por defecto (`_DEFAULT_CR5_DESCRIPTION`, más abajo)
+reproduce los mismos datos que antes vivían hardcodeados aquí como
+`_JOINT_NAMES`/`_JOINT_ORIGINS`, copiados del URDF real del CR5 (en
+~/ros2_ws/src/TCP-IP-ROS-6AXis/dobot_description/urdf/cr5_robot.urdf). Para
+cargar un robot arbitrario en tiempo de carga, usar
+`urdf_kit.parse_urdf_file` (paquete `urdf_kit`) y pasar el resultado como
+`robot_description` -- el cableado de esa llamada en
+`controller_node/_build_adapter` queda fuera de este adaptador (ver
+ROADMAP.md, Bloque 9).
 
 Ver docs/algebra_geometrica_conforme.md §4: estos mismos twists son la
 entrada que necesitaría `GaKinematicsAdapter` -- no hace falta
-re-derivarlos aparte cuando se implemente.
+re-derivarlos aparte cuando se implemente; solo cambia el álgebra con la
+que se interpretan los mismos datos crudos de `RobotDescription`.
 """
 
 from __future__ import annotations
@@ -22,11 +34,18 @@ from typing import List, Tuple
 
 import numpy as np
 
-from shared_kernel import JointConfiguration, JointPosition, Pose, Trajectory
+from shared_kernel import (
+    JointConfiguration,
+    JointDescription,
+    JointPosition,
+    Pose,
+    RobotDescription,
+    Trajectory,
+)
 
 # Orden de las articulaciones tal como lo declaran robot_node (ver
 # robot_node/node.py) y el URDF: joint1..joint6, revolutas, eje Z local.
-_JOINT_NAMES: Tuple[str, ...] = (
+_CR5_JOINT_NAMES: Tuple[str, ...] = (
     "joint1",
     "joint2",
     "joint3",
@@ -36,18 +55,11 @@ _JOINT_NAMES: Tuple[str, ...] = (
 )
 
 # (xyz, rpy) de cada <joint><origin> del URDF del CR5, en orden de cadena
-# cinemática parent->child. El <axis> de las seis es siempre "0 0 1" local,
-# así que no hace falta guardarlo aparte.
-#
-# TODO: hardcodeado a mano para el CR5 concreto (copiado del URDF en
-# ~/ros2_ws/src/TCP-IP-ROS-6AXis/dobot_description/urdf/cr5_robot.urdf).
-# Para soportar otro robot sin tocar este archivo, lo general sería parsear
-# el .urdf en tiempo de carga (p.ej. con `urdf_parser_py`) y extraer
-# xyz/rpy/axis de cada <joint> automáticamente, en vez de mantener esta
-# constante a mano por robot. Igual que `_JOINT_NAMES` y el 6×6 fijo de
-# `_jacobian_space`/`_adjoint` (asumen exactamente 6 revolutas) -- ver
-# ROADMAP.md, Bloque 9.
-_JOINT_ORIGINS: Tuple[Tuple[Tuple[float, float, float], Tuple[float, float, float]], ...] = (
+# cinemática parent->child (el CR5 no tiene <joint type="fixed"> intermedios
+# entre articulaciones móviles, así que no hace falta plegado -- a
+# diferencia de urdf_kit.parse_urdf_file, que sí lo hace para el caso
+# general). El <axis> de las seis es siempre "0 0 1" local.
+_CR5_JOINT_ORIGINS: Tuple[Tuple[Tuple[float, float, float], Tuple[float, float, float]], ...] = (
     ((0.0, 0.0, 0.147), (0.0, 0.0, 0.0)),
     ((0.0, 0.0, 0.0), (1.5708, 1.5708, 0.0)),
     ((-0.427, 0.0, 0.0), (0.0, 0.0, 0.0)),
@@ -55,6 +67,30 @@ _JOINT_ORIGINS: Tuple[Tuple[Tuple[float, float, float], Tuple[float, float, floa
     ((0.0, -0.116, 0.0), (1.5708, 0.0, 0.0)),
     ((0.0, 0.105, 0.0), (-1.5708, 0.0, 0.0)),
 )
+
+
+def _default_cr5_description() -> RobotDescription:
+    """Fallback histórico: mismos joint_names/orígenes que antes vivían en
+    `_JOINT_NAMES`/`_JOINT_ORIGINS`, ahora tipados como `RobotDescription`.
+    `base_link`/`tip_link` son nombres genéricos -- el cálculo de este
+    adaptador no los usa, solo los exige `RobotDescription.create` como
+    parte del value object; no tienen por qué coincidir con los nombres de
+    escena de CoppeliaSim (`coppeliasim_ik_adapter.py` usa los suyos)."""
+    joints = [
+        JointDescription(
+            name=name,
+            joint_type="revolute",
+            origin_xyz=xyz,
+            origin_rpy=rpy,
+            axis=(0.0, 0.0, 1.0),
+        )
+        for name, (xyz, rpy) in zip(_CR5_JOINT_NAMES, _CR5_JOINT_ORIGINS)
+    ]
+    # Datos internos fijos y conocidos válidos -- nunca Left.
+    return RobotDescription.create(joints, base_link="base_link", tip_link="link6").value
+
+
+_DEFAULT_CR5_DESCRIPTION = _default_cr5_description()
 
 
 def _rpy_to_matrix(roll: float, pitch: float, yaw: float) -> np.ndarray:
@@ -73,30 +109,38 @@ def _skew(v: np.ndarray) -> np.ndarray:
     return np.array([[0, -z, y], [z, 0, -x], [-y, x, 0]])
 
 
-def _home_screw_axes() -> Tuple[List[np.ndarray], np.ndarray]:
-    """Deriva los twists S_i y la pose home M acumulando `_JOINT_ORIGINS`
-    (ver docstring del módulo)."""
+def _screw_axes_from_description(
+    description: RobotDescription,
+) -> Tuple[List[np.ndarray], np.ndarray]:
+    """Deriva los twists S_i y la pose home M acumulando los orígenes de
+    `description` (ver docstring del módulo). Generaliza la versión previa
+    (que asumía eje Z local fijo, como el CR5): usa `joint.axis` real de
+    cada articulación, y soporta `prismatic` además de `revolute`/`continuous`
+    (Modern Robotics, tabla 3.3: w=0, v=axis para prismáticas)."""
     transform = np.eye(4)
     screws = []
-    for xyz, rpy in _JOINT_ORIGINS:
+    for joint in description.joints:
         origin = np.eye(4)
-        origin[:3, :3] = _rpy_to_matrix(*rpy)
-        origin[:3, 3] = xyz
+        origin[:3, :3] = _rpy_to_matrix(*joint.origin_rpy)
+        origin[:3, 3] = joint.origin_xyz
         transform = transform @ origin
-        w = transform[:3, 2]
-        q = transform[:3, 3]
-        v = -np.cross(w, q)
+        axis_world = transform[:3, :3] @ np.array(joint.axis)
+        if joint.joint_type == "prismatic":
+            w = np.zeros(3)
+            v = axis_world
+        else:
+            w = axis_world
+            q = transform[:3, 3]
+            v = -np.cross(w, q)
         screws.append(np.concatenate([w, v]))
     return screws, transform
 
 
-_HOME_SCREW_AXES, _HOME_POSE = _home_screw_axes()
-
-
 def _se3_exp(screw: np.ndarray, theta: float) -> np.ndarray:
     """exp([S]θ) -- fórmula de Rodrigues extendida a se(3) (Modern Robotics
-    ec. 3.51). `screw`=(w,v) con |w|=1: las seis articulaciones del CR5 son
-    revolutas, nunca prismáticas."""
+    ec. 3.51). `screw`=(w,v) con |w|=1 para articulaciones revolute/continuous;
+    la misma fórmula vale sin cambios para prismatic (w=0: `rotation` queda
+    la identidad y `g@v` se reduce a theta*v, la traslación pura)."""
     w, v = screw[:3], screw[3:]
     w_hat = _skew(w)
     w_hat_sq = w_hat @ w_hat
@@ -112,11 +156,13 @@ def _se3_exp(screw: np.ndarray, theta: float) -> np.ndarray:
     return transform
 
 
-def _forward_kinematics(thetas: np.ndarray) -> np.ndarray:
+def _forward_kinematics(
+    screw_axes: List[np.ndarray], home_pose: np.ndarray, thetas: np.ndarray
+) -> np.ndarray:
     transform = np.eye(4)
-    for screw, theta in zip(_HOME_SCREW_AXES, thetas):
+    for screw, theta in zip(screw_axes, thetas):
         transform = transform @ _se3_exp(screw, theta)
-    return transform @ _HOME_POSE
+    return transform @ home_pose
 
 
 def _adjoint(transform: np.ndarray) -> np.ndarray:
@@ -128,13 +174,14 @@ def _adjoint(transform: np.ndarray) -> np.ndarray:
     return ad
 
 
-def _jacobian_space(thetas: np.ndarray) -> np.ndarray:
+def _jacobian_space(screw_axes: List[np.ndarray], thetas: np.ndarray) -> np.ndarray:
     """J_s(θ) columna a columna: J_i = Ad_{T_{i-1}}·S_i, con T_{i-1} el
     producto de exponenciales hasta (sin incluir) la articulación i (Modern
-    Robotics ec. 5.11)."""
-    jacobian = np.zeros((6, 6))
+    Robotics ec. 5.11). Filas=6 siempre (dimensión de se(3), no depende del
+    nº de articulaciones); columnas=len(screw_axes)."""
+    jacobian = np.zeros((6, len(screw_axes)))
     transform = np.eye(4)
-    for i, (screw, theta) in enumerate(zip(_HOME_SCREW_AXES, thetas)):
+    for i, (screw, theta) in enumerate(zip(screw_axes, thetas)):
         jacobian[:, i] = _adjoint(transform) @ screw
         transform = transform @ _se3_exp(screw, theta)
     return jacobian
@@ -207,12 +254,17 @@ class PoeKinematicsAdapter:
         position_tolerance: float = 1e-4,
         damping_factor: float = 1e-2,
         steps: int = 20,
+        robot_description: RobotDescription = _DEFAULT_CR5_DESCRIPTION,
     ):
         self._max_iterations = max_iterations
         self._orientation_tolerance = orientation_tolerance
         self._position_tolerance = position_tolerance
         self._damping_factor = damping_factor
         self._steps = steps
+        self._joint_names = robot_description.joint_names
+        self._screw_axes, self._home_pose = _screw_axes_from_description(
+            robot_description
+        )
 
     def compute_trajectory(
         self, goal: Pose, current_configuration: JointConfiguration
@@ -227,11 +279,13 @@ class PoeKinematicsAdapter:
     ) -> JointConfiguration:
         goal_transform = _pose_to_matrix(goal)
         thetas = np.array(
-            [current_configuration.angle_of(name) for name in _JOINT_NAMES]
+            [current_configuration.angle_of(name) for name in self._joint_names]
         )
 
         for _ in range(self._max_iterations):
-            current_transform = _forward_kinematics(thetas)
+            current_transform = _forward_kinematics(
+                self._screw_axes, self._home_pose, thetas
+            )
             error_body = _matrix_log_se3(
                 np.linalg.inv(current_transform) @ goal_transform
             )
@@ -242,10 +296,10 @@ class PoeKinematicsAdapter:
             ):
                 positions = [
                     JointPosition(name, float(theta))
-                    for name, theta in zip(_JOINT_NAMES, thetas)
+                    for name, theta in zip(self._joint_names, thetas)
                 ]
                 return JointConfiguration.create(positions).value
-            jacobian = _jacobian_space(thetas)
+            jacobian = _jacobian_space(self._screw_axes, thetas)
             damping_sq = self._damping_factor * float(error_space @ error_space)
             step = jacobian.T @ np.linalg.solve(
                 jacobian @ jacobian.T + damping_sq * np.eye(6), error_space
