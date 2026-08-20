@@ -28,6 +28,7 @@ class ControlSession:
         waypoint_period_seconds: float = 0.5,
         tip_name: str = "",
         scene_path: str = "",
+        zmq_port: int = 23000,
     ):
         self.namespace = namespace
         self._robot_target = robot_target
@@ -36,6 +37,7 @@ class ControlSession:
         self._waypoint_period_seconds = waypoint_period_seconds
         self._tip_name = tip_name
         self._scene_path = scene_path
+        self._zmq_port = zmq_port
         self._robot_process: Optional[subprocess.Popen] = None
         self._controller_process: Optional[subprocess.Popen] = None
 
@@ -52,6 +54,7 @@ class ControlSession:
             "-r", f"__ns:={self.namespace}",
             "-p", f"robot_target:={self._robot_target}",
             "-p", f"joint_names:={joint_names_yaml}",
+            "-p", f"zmq_port:={self._zmq_port}",
         ]
         # -p x:= con valor vacío rompe el parseo de argumentos de ROS2
         # ("Couldn't parse parameter override rule") -- se omiten del todo
@@ -69,6 +72,7 @@ class ControlSession:
                 "-r", f"__ns:={self.namespace}",
                 "-p", f"strategy:={self._controller_strategy}",
                 "-p", f"waypoint_period_seconds:={self._waypoint_period_seconds}",
+                "-p", f"zmq_port:={self._zmq_port}",
             ]
         )
 

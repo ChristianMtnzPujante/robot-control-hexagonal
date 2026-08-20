@@ -31,9 +31,14 @@ class ControllerNode(Node):
 
         self.declare_parameter("strategy", "naive_test")
         self.declare_parameter("waypoint_period_seconds", 0.5)
+        # Puerto ZMQ del CoppeliaSim al que conectar -- solo lo usa la
+        # estrategia "coppeliasim_ik". Permite varias instancias de
+        # CoppeliaSim corriendo a la vez (ver commander/two_sessions_demo.py).
+        self.declare_parameter("zmq_port", 23000)
 
         strategy = self.get_parameter("strategy").value
-        self._kinematics = self._build_adapter(strategy)
+        zmq_port = int(self.get_parameter("zmq_port").value)
+        self._kinematics = self._build_adapter(strategy, zmq_port)
 
         self._latest_configuration: Optional[JointConfiguration] = None
         self._pending_waypoints: list = []
@@ -60,12 +65,12 @@ class ControllerNode(Node):
 
         self.get_logger().info(f'controller_node listo, strategy="{strategy}"')
 
-    def _build_adapter(self, strategy: str):
-        # Todos los adaptadores se construyen sin argumentos -- no hay
-        # ningún parámetro ROS2 aquí para decir "qué robot" (joint_names,
-        # tip, twists...); ControlSession tampoco reenvía esos datos a
-        # controller_node hoy (ver control_session.py::start()). Ver
-        # ROADMAP.md, Bloque 9.
+    def _build_adapter(self, strategy: str, zmq_port: int):
+        # Todos los adaptadores se construyen sin argumentos (salvo
+        # zmq_port para coppeliasim_ik) -- no hay ningún parámetro ROS2 aquí
+        # para decir "qué robot" (joint_names, tip, twists...); ControlSession
+        # tampoco reenvía esos datos a controller_node hoy (ver
+        # control_session.py::start()). Ver ROADMAP.md, Bloque 9.
         if strategy == "poe":
             return PoeKinematicsAdapter()
         if strategy == "ga":
@@ -77,7 +82,7 @@ class ControllerNode(Node):
         if strategy == "straight_line":
             return StraightLineKinematicsAdapter()
         if strategy == "coppeliasim_ik":
-            return CoppeliaSimIkKinematicsAdapter()
+            return CoppeliaSimIkKinematicsAdapter(zmq_port=zmq_port)
         raise ValueError(f'strategy desconocida: "{strategy}"')
 
     def _on_joint_states(self, msg: JointState) -> None:

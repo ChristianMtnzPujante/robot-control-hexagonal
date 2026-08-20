@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'commander_demo = commander.commander_node:main',
+            'commander_demo_two_sessions = commander.two_sessions_demo:main',
         ],
     },
 )

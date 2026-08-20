@@ -34,14 +34,19 @@ class RobotNode(Node):
         # automáticamente al arrancar. Vacío asume que ya hay una escena
         # cargada y en play (comportamiento de siempre).
         self.declare_parameter("scene_path", "")
+        # Puerto ZMQ del CoppeliaSim al que conectar -- permite tener varias
+        # instancias de CoppeliaSim corriendo a la vez, cada una con su
+        # propia ControlSession (ver commander/two_sessions_demo.py).
+        self.declare_parameter("zmq_port", 23000)
 
         target = self.get_parameter("robot_target").value
         joint_names = list(self.get_parameter("joint_names").value)
         tip_name = self.get_parameter("tip_name").value or None
         scene_path = self.get_parameter("scene_path").value or None
+        zmq_port = int(self.get_parameter("zmq_port").value)
 
         self._robot_controller = self._build_adapter(
-            target, joint_names, tip_name, scene_path
+            target, joint_names, tip_name, scene_path, zmq_port
         )
 
         self._command_sub = self.create_subscription(
@@ -59,10 +64,10 @@ class RobotNode(Node):
             f'robot_node listo, target="{target}", joints={joint_names}'
         )
 
-    def _build_adapter(self, target: str, joint_names, tip_name, scene_path):
+    def _build_adapter(self, target: str, joint_names, tip_name, scene_path, zmq_port):
         if target == "simulado":
             return CoppeliaSimRobotAdapter(
-                joint_names, tip_name=tip_name, scene_path=scene_path
+                joint_names, tip_name=tip_name, scene_path=scene_path, zmq_port=zmq_port
             )
         if target == "real":
             # host/port hardcodeados y Cr5RealRobotAdapter es, por diseño,

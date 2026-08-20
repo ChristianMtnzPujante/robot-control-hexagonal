@@ -35,6 +35,7 @@ class Commander(Node):
         waypoint_period_seconds: float = 0.5,
         tip_name: str = "",
         scene_path: str = "",
+        zmq_port: int = 23000,
     ) -> ControlSession:
         namespace = f"/session_{name}"
         session = ControlSession(
@@ -45,6 +46,7 @@ class Commander(Node):
             waypoint_period_seconds=waypoint_period_seconds,
             tip_name=tip_name,
             scene_path=scene_path,
+            zmq_port=zmq_port,
         )
         session.start()
         self._sessions[name] = session
