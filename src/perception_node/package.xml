@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>perception_node</name>
+  <version>0.0.1</version>
+  <description>Adaptadores de PerceptionPort (shared_kernel): qué sabe el sistema de la escena en un instante dado. Hoy solo StaticPerceptionAdapter (Scene fija, sin ROS2 todavía) -- ver ROADMAP.md, Bloque 3.</description>
+  <maintainer email="chris@example.com">chris</maintainer>
+  <license>Apache-2.0</license>
+
+  <depend>shared_kernel</depend>
+
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

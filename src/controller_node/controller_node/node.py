@@ -2,6 +2,15 @@
 KinematicsPort. Recibe un objetivo cartesiano, calcula la trayectoria con
 la estrategia elegida (PoE/GA/DH/prueba) y va publicando los waypoints al
 robot_node, reportando progreso al Commander por 'feedback'.
+
+La estrategia no queda fija al arrancar: el topic 'set_strategy' (ver
+_on_set_strategy) permite cambiarla en caliente desde cualquier otro nodo
+-- incluido un futuro supervisor en otra máquina (ROS2/DDS no distingue
+local de remoto), sin relanzar la sesión (ROADMAP.md, Bloque 7). Solo
+afecta al PRÓXIMO objetivo: una trayectoria ya en curso (_pending_waypoints)
+sigue drenándose con la estrategia con la que se calculó -- cancelarla a
+medio camino es "replanificación reactiva" de verdad (Bloque 4), no algo
+que este mecanismo resuelva todavía.
 """
 
 from __future__ import annotations
@@ -11,7 +20,14 @@ from typing import Optional
 
 from geometry_msgs.msg import Pose as PoseMsg
 from rclpy.node import Node
-from ros2_kit import GOAL_QOS, run_node, to_joint_configuration, to_joint_state_msg, to_pose
+from ros2_kit import (
+    GOAL_QOS,
+    STRATEGY_QOS,
+    run_node,
+    to_joint_configuration,
+    to_joint_state_msg,
+    to_pose,
+)
 from sensor_msgs.msg import JointState
 from std_msgs.msg import String
 
@@ -45,14 +61,18 @@ class ControllerNode(Node):
         self.declare_parameter("base_link", "")
         self.declare_parameter("tip_link", "")
 
+        # zmq_port/urdf_path/base_link/tip_link no cambian a media sesión
+        # (son del robot/escena, no de la estrategia) -- se guardan para que
+        # _on_set_strategy pueda reconstruir el adaptador más tarde sin
+        # tener que volver a declararlos ni pedirlos por el mensaje.
+        self._zmq_port = int(self.get_parameter("zmq_port").value)
+        self._urdf_path = self.get_parameter("urdf_path").value
+        self._base_link = self.get_parameter("base_link").value
+        self._tip_link = self.get_parameter("tip_link").value
+
         strategy = self.get_parameter("strategy").value
-        zmq_port = int(self.get_parameter("zmq_port").value)
-        urdf_path = self.get_parameter("urdf_path").value
-        base_link = self.get_parameter("base_link").value
-        tip_link = self.get_parameter("tip_link").value
-        self._kinematics = self._build_adapter(
-            strategy, zmq_port, urdf_path, base_link, tip_link
-        )
+        self._strategy = strategy
+        self._kinematics = self._build_adapter(strategy)
 
         self._latest_configuration: Optional[JointConfiguration] = None
         self._pending_waypoints: list = []
@@ -68,6 +88,14 @@ class ControllerNode(Node):
         self._goal_sub = self.create_subscription(
             PoseMsg, "goal", self._on_goal, GOAL_QOS
         )
+        # Canal de control para que un supervisor (Bloque 7, incluso en otra
+        # máquina -- ROS2/DDS no distingue local de remoto) pueda cambiar la
+        # estrategia de cinemática en caliente, sin relanzar la sesión.
+        # best-effort a propósito (ver STRATEGY_QOS): perder un mensaje no es
+        # crítico, la sesión sigue con la estrategia anterior.
+        self._strategy_sub = self.create_subscription(
+            String, "set_strategy", self._on_set_strategy, STRATEGY_QOS
+        )
         self._state_sub = self.create_subscription(
             JointState, "joint_states", self._on_joint_states, 10
         )
@@ -79,10 +107,11 @@ class ControllerNode(Node):
 
         self.get_logger().info(f'controller_node listo, strategy="{strategy}"')
 
-    def _build_adapter(
-        self, strategy: str, zmq_port: int, urdf_path: str, base_link: str, tip_link: str
-    ):
-        robot_description = self._load_robot_description(urdf_path, base_link, tip_link)
+    def _build_adapter(self, strategy: str):
+        # Lee zmq_port/urdf_path/base_link/tip_link de self -- no cambian
+        # entre llamadas, así que _on_set_strategy puede llamar a esto de
+        # nuevo pasando solo la estrategia nueva (ver ROADMAP.md, Bloque 9).
+        robot_description = self._load_robot_description()
         if strategy == "poe":
             if robot_description is None:
                 return PoeKinematicsAdapter()
@@ -96,23 +125,21 @@ class ControllerNode(Node):
         if strategy == "straight_line":
             return StraightLineKinematicsAdapter()
         if strategy == "coppeliasim_ik":
-            return CoppeliaSimIkKinematicsAdapter(zmq_port=zmq_port)
+            return CoppeliaSimIkKinematicsAdapter(zmq_port=self._zmq_port)
         raise ValueError(f'strategy desconocida: "{strategy}"')
 
-    def _load_robot_description(
-        self, urdf_path: str, base_link: str, tip_link: str
-    ) -> Optional[RobotDescription]:
+    def _load_robot_description(self) -> Optional[RobotDescription]:
         # Vacío -- ningún robot cargado, cada adaptador usa su propio
         # default (hoy, el CR5 hardcodeado). No aplica a "dh"/"naive_test"/
         # "straight_line"/"coppeliasim_ik", que no leen RobotDescription.
-        if not urdf_path:
+        if not self._urdf_path:
             return None
-        if not base_link or not tip_link:
+        if not self._base_link or not self._tip_link:
             raise ValueError(
                 'urdf_path requiere también "base_link" y "tip_link" (la '
                 "cadena serie a extraer del URDF) -- ninguno puede estar vacío."
             )
-        return parse_urdf_file(urdf_path, base_link, tip_link)
+        return parse_urdf_file(self._urdf_path, self._base_link, self._tip_link)
 
     def _on_joint_states(self, msg: JointState) -> None:
         self._latest_configuration = to_joint_configuration(msg)
@@ -123,6 +150,27 @@ class ControllerNode(Node):
     def _publish_feedback(self, status: str, **extra) -> None:
         payload = {"status": status, **extra}
         self._feedback_pub.publish(String(data=json.dumps(payload)))
+
+    def _on_set_strategy(self, msg: String) -> None:
+        new_strategy = msg.data
+        try:
+            new_kinematics = self._build_adapter(new_strategy)
+        except Exception as error:
+            # Límite del sistema: un mensaje externo puede pedir cualquier
+            # cosa (estrategia desconocida, urdf_path que ya no existe...).
+            # No se propaga -- la sesión sigue con la estrategia anterior,
+            # que sigue siendo válida (best-effort, ver STRATEGY_QOS).
+            self.get_logger().warning(
+                f'set_strategy: no se pudo cambiar a "{new_strategy}": {error}'
+            )
+            self._publish_feedback(
+                "estrategia_invalida", strategy=new_strategy, error=str(error)
+            )
+            return
+        self._kinematics = new_kinematics
+        self._strategy = new_strategy
+        self.get_logger().info(f'controller_node: estrategia cambiada a "{new_strategy}"')
+        self._publish_feedback("estrategia_cambiada", strategy=new_strategy)
 
     def _on_goal(self, msg: PoseMsg) -> None:
         goal = to_pose(msg)

@@ -38,6 +38,19 @@ class KinematicsPort(Protocol):
     ) -> Trajectory: ...
 
 
+class PerceptionPort(Protocol):
+    """Lo que el sistema sabe de la escena en este instante: 'detecta plano
+    X', 'lista obstáculos actuales'. Desacoplado de la implementación de
+    visión (ground truth de CoppeliaSim, cámara real...) -- quien consume
+    este puerto (`PlanningPort`, `PlannerSelectionPort`) nunca sabe cuál de
+    las dos hay detrás. Devuelve una `Scene` completa de una vez (no
+    streaming/eventos) porque hoy no hace falta más: primer consumidor real,
+    ver ROADMAP.md, Bloque 3.
+    """
+
+    def get_scene(self) -> Scene: ...
+
+
 class PlanningPort(Protocol):
     """Planificación consciente de la escena: como `KinematicsPort`, pero
     recibe también la `Scene` (obstáculos, planos) y debe evitarlos.

@@ -10,6 +10,7 @@ from .errors import (
 )
 from .ports import (
     KinematicsPort,
+    PerceptionPort,
     PlannerSelectionPort,
     PlanningPort,
     RobotControllerPort,
@@ -42,6 +43,7 @@ __all__ = [
     "Trajectory",
     "RobotControllerPort",
     "KinematicsPort",
+    "PerceptionPort",
     "PlanningPort",
     "PlannerSelectionPort",
 ]

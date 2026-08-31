@@ -19,3 +19,14 @@ GOAL_QOS = QoSProfile(
     reliability=ReliabilityPolicy.RELIABLE,
     durability=DurabilityPolicy.TRANSIENT_LOCAL,
 )
+
+# STRATEGY_QOS es la contraria a propósito: perder un cambio de estrategia
+# no es crítico -- la sesión sigue funcionando con la estrategia anterior
+# (que sigue siendo válida), y quien lo mandó puede simplemente reenviarlo
+# si no ve el "estrategia_cambiada" en feedback. No pagamos el coste de
+# acks/reintentos de RELIABLE para un canal de control best-effort.
+STRATEGY_QOS = QoSProfile(
+    depth=1,
+    reliability=ReliabilityPolicy.BEST_EFFORT,
+    durability=DurabilityPolicy.VOLATILE,
+)
