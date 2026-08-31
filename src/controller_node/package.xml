@@ -13,6 +13,7 @@
   <depend>std_msgs</depend>
   <depend>shared_kernel</depend>
   <depend>ros2_kit</depend>
+  <depend>urdf_kit</depend>
   <depend>python3-numpy</depend>
 
   <test_depend>python3-pytest</test_depend>

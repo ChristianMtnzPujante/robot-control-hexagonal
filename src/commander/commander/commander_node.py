@@ -36,6 +36,9 @@ class Commander(Node):
         tip_name: str = "",
         scene_path: str = "",
         zmq_port: int = 23000,
+        urdf_path: str = "",
+        base_link: str = "",
+        tip_link: str = "",
     ) -> ControlSession:
         namespace = f"/session_{name}"
         session = ControlSession(
@@ -47,6 +50,9 @@ class Commander(Node):
             tip_name=tip_name,
             scene_path=scene_path,
             zmq_port=zmq_port,
+            urdf_path=urdf_path,
+            base_link=base_link,
+            tip_link=tip_link,
         )
         session.start()
         self._sessions[name] = session

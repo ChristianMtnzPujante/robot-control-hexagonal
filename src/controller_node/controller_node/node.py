@@ -15,7 +15,8 @@ from ros2_kit import GOAL_QOS, run_node, to_joint_configuration, to_joint_state_
 from sensor_msgs.msg import JointState
 from std_msgs.msg import String
 
-from shared_kernel import JointConfiguration, Pose
+from shared_kernel import JointConfiguration, Pose, RobotDescription
+from urdf_kit import parse_urdf_file
 
 from .adapters.coppeliasim_ik_adapter import CoppeliaSimIkKinematicsAdapter
 from .adapters.dh_adapter import DhKinematicsAdapter
@@ -35,10 +36,23 @@ class ControllerNode(Node):
         # estrategia "coppeliasim_ik". Permite varias instancias de
         # CoppeliaSim corriendo a la vez (ver commander/two_sessions_demo.py).
         self.declare_parameter("zmq_port", 23000)
+        # Ruta a un .urdf real (más base_link/tip_link, la cadena serie a
+        # extraer de él) para construir un RobotDescription genérico -- solo
+        # lo usan las estrategias "poe"/"ga". Vacío conserva el CR5
+        # hardcodeado que cada adaptador trae como default (ver
+        # ROADMAP.md, Bloque 9).
+        self.declare_parameter("urdf_path", "")
+        self.declare_parameter("base_link", "")
+        self.declare_parameter("tip_link", "")
 
         strategy = self.get_parameter("strategy").value
         zmq_port = int(self.get_parameter("zmq_port").value)
-        self._kinematics = self._build_adapter(strategy, zmq_port)
+        urdf_path = self.get_parameter("urdf_path").value
+        base_link = self.get_parameter("base_link").value
+        tip_link = self.get_parameter("tip_link").value
+        self._kinematics = self._build_adapter(
+            strategy, zmq_port, urdf_path, base_link, tip_link
+        )
 
         self._latest_configuration: Optional[JointConfiguration] = None
         self._pending_waypoints: list = []
@@ -65,16 +79,16 @@ class ControllerNode(Node):
 
         self.get_logger().info(f'controller_node listo, strategy="{strategy}"')
 
-    def _build_adapter(self, strategy: str, zmq_port: int):
-        # Todos los adaptadores se construyen sin argumentos (salvo
-        # zmq_port para coppeliasim_ik) -- no hay ningún parámetro ROS2 aquí
-        # para decir "qué robot" (joint_names, tip, twists...); ControlSession
-        # tampoco reenvía esos datos a controller_node hoy (ver
-        # control_session.py::start()). Ver ROADMAP.md, Bloque 9.
+    def _build_adapter(
+        self, strategy: str, zmq_port: int, urdf_path: str, base_link: str, tip_link: str
+    ):
+        robot_description = self._load_robot_description(urdf_path, base_link, tip_link)
         if strategy == "poe":
-            return PoeKinematicsAdapter()
+            if robot_description is None:
+                return PoeKinematicsAdapter()
+            return PoeKinematicsAdapter(robot_description=robot_description)
         if strategy == "ga":
-            return GaKinematicsAdapter()
+            return GaKinematicsAdapter(robot_description=robot_description)
         if strategy == "dh":
             return DhKinematicsAdapter()
         if strategy == "naive_test":
@@ -84,6 +98,21 @@ class ControllerNode(Node):
         if strategy == "coppeliasim_ik":
             return CoppeliaSimIkKinematicsAdapter(zmq_port=zmq_port)
         raise ValueError(f'strategy desconocida: "{strategy}"')
+
+    def _load_robot_description(
+        self, urdf_path: str, base_link: str, tip_link: str
+    ) -> Optional[RobotDescription]:
+        # Vacío -- ningún robot cargado, cada adaptador usa su propio
+        # default (hoy, el CR5 hardcodeado). No aplica a "dh"/"naive_test"/
+        # "straight_line"/"coppeliasim_ik", que no leen RobotDescription.
+        if not urdf_path:
+            return None
+        if not base_link or not tip_link:
+            raise ValueError(
+                'urdf_path requiere también "base_link" y "tip_link" (la '
+                "cadena serie a extraer del URDF) -- ninguno puede estar vacío."
+            )
+        return parse_urdf_file(urdf_path, base_link, tip_link)
 
     def _on_joint_states(self, msg: JointState) -> None:
         self._latest_configuration = to_joint_configuration(msg)

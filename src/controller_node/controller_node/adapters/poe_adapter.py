@@ -15,11 +15,14 @@ El `RobotDescription` por defecto (`_DEFAULT_CR5_DESCRIPTION`, más abajo)
 reproduce los mismos datos que antes vivían hardcodeados aquí como
 `_JOINT_NAMES`/`_JOINT_ORIGINS`, copiados del URDF real del CR5 (en
 ~/ros2_ws/src/TCP-IP-ROS-6AXis/dobot_description/urdf/cr5_robot.urdf). Para
-cargar un robot arbitrario en tiempo de carga, usar
-`urdf_kit.parse_urdf_file` (paquete `urdf_kit`) y pasar el resultado como
-`robot_description` -- el cableado de esa llamada en
-`controller_node/_build_adapter` queda fuera de este adaptador (ver
-ROADMAP.md, Bloque 9).
+cargar un robot arbitrario en tiempo de carga, `controller_node/_build_adapter`
+ya llama a `urdf_kit.parse_urdf_file` con los parámetros ROS2
+`urdf_path`/`base_link`/`tip_link` y pasa el resultado como
+`robot_description` (ver ROADMAP.md, Bloque 9). Mientras tanto,
+`_validate_cr5_reference_if_applicable` (más abajo) es una red de seguridad
+TEMPORAL que compara cualquier `RobotDescription` que diga ser un CR5 contra
+`_DEFAULT_CR5_DESCRIPTION` -- borrar cuando esta ruta genérica lleve tiempo
+validada.
 
 Ver docs/algebra_geometrica_conforme.md §4: estos mismos twists son la
 entrada que necesitaría `GaKinematicsAdapter` -- no hace falta
@@ -91,6 +94,36 @@ def _default_cr5_description() -> RobotDescription:
 
 
 _DEFAULT_CR5_DESCRIPTION = _default_cr5_description()
+
+
+def _validate_cr5_reference_if_applicable(description: RobotDescription) -> None:
+    """Red de seguridad TEMPORAL: si `description` dice ser un CR5 (mismos
+    nombres de articulación que `_CR5_JOINT_NAMES`), comprueba que sus
+    twists/pose home coincidan con `_DEFAULT_CR5_DESCRIPTION` -- la tabla
+    hardcodeada que ya se validó a mano contra el URDF real. Objetivo:
+    confiar en la ruta genérica de `urdf_kit.parse_urdf_file` para el único
+    robot real que tenemos hoy, antes de fiarnos de ella para uno nuevo.
+    Borrar junto con `_DEFAULT_CR5_DESCRIPTION` cuando esta ruta lleve
+    tiempo validada (ver ROADMAP.md, Bloque 9)."""
+    if description.joint_names != _CR5_JOINT_NAMES:
+        return
+    screws, home_pose = _screw_axes_from_description(description)
+    reference_screws, reference_home_pose = _screw_axes_from_description(
+        _DEFAULT_CR5_DESCRIPTION
+    )
+    for name, screw, reference_screw in zip(_CR5_JOINT_NAMES, screws, reference_screws):
+        if not np.allclose(screw, reference_screw, atol=1e-6):
+            raise ValueError(
+                f'PoeKinematicsAdapter: el twist de "{name}" derivado del '
+                "RobotDescription recibido no coincide con el de referencia "
+                "del CR5 -- revisa urdf_path/base_link/tip_link."
+            )
+    if not np.allclose(home_pose, reference_home_pose, atol=1e-6):
+        raise ValueError(
+            "PoeKinematicsAdapter: la pose home derivada del RobotDescription "
+            "recibido no coincide con la de referencia del CR5 -- revisa "
+            "urdf_path/base_link/tip_link."
+        )
 
 
 def _rpy_to_matrix(roll: float, pitch: float, yaw: float) -> np.ndarray:
@@ -256,6 +289,7 @@ class PoeKinematicsAdapter:
         steps: int = 20,
         robot_description: RobotDescription = _DEFAULT_CR5_DESCRIPTION,
     ):
+        _validate_cr5_reference_if_applicable(robot_description)
         self._max_iterations = max_iterations
         self._orientation_tolerance = orientation_tolerance
         self._position_tolerance = position_tolerance
