@@ -45,6 +45,7 @@ dummy rojo (objetivo).
 from __future__ import annotations
 
 import time
+from typing import Callable, Protocol
 
 from controller_node.adapters.obstacle_avoiding_planning_adapter import (
     ObstacleAvoidingPlanningAdapter,
@@ -57,6 +58,7 @@ from shared_kernel import (
     Pose,
     Scene,
     SphereObstacle,
+    Trajectory,
 )
 
 from .coppeliasim_scene_builder import build_cr5_scene, ensure_coppeliasim_running
@@ -82,18 +84,31 @@ _CLEARANCE = 0.05
 _WAYPOINT_PAUSE_SECONDS = 0.3
 
 
+class _PlanningPort(Protocol):
+    def compute_trajectory(
+        self, goal: Pose, current_configuration: JointConfiguration, scene: Scene
+    ) -> Trajectory: ...
+
+
+def _default_planner(kinematics: PoeKinematicsAdapter, clearance: float) -> _PlanningPort:
+    return ObstacleAvoidingPlanningAdapter(kinematics, clearance=clearance)
+
+
 def run(
     initial_configuration: JointConfiguration,
     goal: Pose,
     obstacle: SphereObstacle,
     clearance: float = _CLEARANCE,
     port: int = _ZMQ_PORT,
+    planner_factory: Callable[[PoeKinematicsAdapter, float], _PlanningPort] = _default_planner,
 ) -> None:
     """Cuerpo reutilizable del demo: construye la escena para la
     `initial_configuration`/`obstacle` dadas, planifica hacia `goal`
     evitándolo, y ejecuta la trayectoria contra CoppeliaSim real. Permite
-    definir otros ejemplos (otra postura inicial, otro obstáculo/goal) sin
-    duplicar la orquestación -- ver `avoid_obstacle_demo_joint2_90.py`."""
+    definir otros ejemplos (otra postura inicial, otro obstáculo/goal, u
+    otro `PlanningPort` vía `planner_factory`) sin duplicar la
+    orquestación -- ver `avoid_obstacle_demo_joint2_90.py` (postura
+    distinta) y `avoid_obstacle_demo_whole_body.py` (otro planificador)."""
     ensure_coppeliasim_running(port=port, settings_suffix="_avoid_obstacle_demo")
 
     scene = Scene.empty().with_obstacle(obstacle)
@@ -105,7 +120,7 @@ def run(
     robot.mark_goal(goal)
 
     kinematics = PoeKinematicsAdapter()
-    planner = ObstacleAvoidingPlanningAdapter(kinematics, clearance=clearance)
+    planner = planner_factory(kinematics, clearance)
 
     trajectory = planner.compute_trajectory(goal, initial_configuration, scene)
     print(

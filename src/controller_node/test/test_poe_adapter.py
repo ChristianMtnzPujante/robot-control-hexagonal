@@ -136,6 +136,41 @@ def test_poe_adapter_converges_for_two_dof_synthetic_robot():
     assert final.angle_of("j2") == pytest.approx(target_theta2, abs=1e-3)
 
 
+def test_link_poses_matches_closed_form_for_two_dof_robot():
+    """FK cerrada a mano por articulación (mismo robot que el test de
+    arriba): joint1 no se mueve por su propia rotación (sigue en el
+    origen, solo cambia su orientación a Rz(theta1)); joint2 arranca en
+    (1,0,0) local y queda en Rz(theta1)·(1,0,0) tras la rotación de
+    joint1, con orientación Rz(theta1+theta2). La última pose debe
+    coincidir exactamente con forward_kinematics (mismo tip, sin eslabón
+    extra tras joint2)."""
+    description = _two_dof_planar_description()
+    adapter = PoeKinematicsAdapter(robot_description=description)
+
+    theta1, theta2 = 0.4, 0.3
+    configuration = JointConfiguration.create(
+        [JointPosition("j1", theta1), JointPosition("j2", theta2)]
+    ).value
+
+    poses = adapter.link_poses(configuration)
+    assert len(poses) == 2
+
+    joint1_pose, joint2_pose = poses
+    assert joint1_pose.x == pytest.approx(0.0, abs=1e-9)
+    assert joint1_pose.y == pytest.approx(0.0, abs=1e-9)
+    assert joint1_pose.qz == pytest.approx(math.sin(theta1 / 2), abs=1e-9)
+    assert joint1_pose.qw == pytest.approx(math.cos(theta1 / 2), abs=1e-9)
+
+    assert joint2_pose.x == pytest.approx(math.cos(theta1), abs=1e-9)
+    assert joint2_pose.y == pytest.approx(math.sin(theta1), abs=1e-9)
+    phi = theta1 + theta2
+    assert joint2_pose.qz == pytest.approx(math.sin(phi / 2), abs=1e-9)
+    assert joint2_pose.qw == pytest.approx(math.cos(phi / 2), abs=1e-9)
+
+    tip = adapter.forward_kinematics(configuration)
+    assert poses[-1] == tip
+
+
 def _single_prismatic_description() -> RobotDescription:
     joints = [
         JointDescription(
