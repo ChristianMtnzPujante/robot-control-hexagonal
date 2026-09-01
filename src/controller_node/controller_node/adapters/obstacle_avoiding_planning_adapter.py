@@ -21,6 +21,24 @@ Requiere que el `KinematicsPort` recibido exponga también
 hay forma de saber dónde está el efector en cartesiano para comprobar si el
 segmento pasa cerca del obstáculo. `NaivePlanningAdapter` no tiene esta
 limitación porque no necesita saber dónde está nada; este adaptador sí.
+
+Qué TIPO de planificador es esto, con precisión (pregunta real que surgió
+analizándolo): dos ejes distintos, no uno.
+  - CÓMO decide: no busca -- no explora alternativas ni construye un
+    árbol/grafo (RRT), no tiene garantía de completitud ni optimalidad
+    (CHOMP de verdad). Es una corrección local: "si la recta choca, empuja
+    el punto justo en la dirección contraria al obstáculo" -- en espíritu,
+    un campo de potenciales (Khatib 1986) de UN SOLO PASO: atracción al
+    goal + repulsión del obstáculo, calculada analíticamente una vez, no
+    recalculada como fuerza continua.
+  - CUÁNDO decide: aquí NO es reactivo en tiempo real -- la `Scene` se da
+    entera y fija de antemano, se calcula la trayectoria COMPLETA antes de
+    mandar el primer waypoint (planificar una vez, ejecutar en bucle
+    abierto). El propio ROADMAP.md ya llama a este bloque "Planificador
+    reactivo con evitación (Régimen 2, rápido)" -- pero la parte
+    verdaderamente reactiva-en-tiempo-real de esa idea ("Replanificación
+    local cuando cambia el campo de obstáculos") sigue sin implementarse;
+    esto es solo la heurística local, no el bucle cerrado.
 """
 
 from __future__ import annotations
