@@ -24,10 +24,11 @@ import time
 from typing import Dict, List, Optional
 
 from coppeliasim_zmqremoteapi_client import RemoteAPIClient
-from shared_kernel import JointConfiguration, JointPosition, Pose
+from shared_kernel import JointConfiguration, JointPosition, Pose, SphereObstacle
 
 _GOAL_COLOR = [1.0, 0.0, 0.0] * 4  # rojo: objetivo cartesiano
 _TRAIL_COLOR = [0.0, 0.4, 1.0] * 4  # azul: waypoints intermedios
+_OBSTACLE_COLOR = [1.0, 0.55, 0.0]  # naranja: obstáculo a evitar
 
 
 class CoppeliaSimRobotAdapter:
@@ -82,6 +83,37 @@ class CoppeliaSimRobotAdapter:
             self._sim.setObjectAlias(self._goal_dummy_handle, "objetivo")
         self._sim.setObjectPosition(
             self._goal_dummy_handle, -1, [goal.x, goal.y, goal.z]
+        )
+
+    def mark_obstacle(self, obstacle: SphereObstacle) -> None:
+        """Cosmético, igual que `mark_goal`: no forma parte de
+        `RobotControllerPort`, solo ayuda a ver en la escena lo que un
+        `PlanningPort` está evitando (ver
+        `controller_node/adapters/obstacle_avoiding_planning_adapter.py`).
+        Crea una esfera visual real del radio del obstáculo -- sin física
+        (options=0: no se marca dynamic ni no-respondable a propósito,
+        puramente decorativa mientras nada del sistema lea colisiones de
+        verdad).
+
+        MISMA limitación de frame que `mark_goal`: `setObjectPosition` con
+        parent=-1 coloca en coordenadas de MUNDO, mientras que `Pose`/
+        `SphereObstacle` viven en el marco interno de `KinematicsPort` (ver
+        `PoeKinematicsAdapter`), que solo coincide con el de CoppeliaSim si
+        el robot está en el origen del mundo con orientación identidad (ver
+        `commander/coppeliasim_scene_builder.py`, que lo garantiza al
+        importar desde URDF sin recentrar) -- con una escena hecha a mano
+        donde el robot esté en otra pose, habría que transformar antes de
+        llamar a `mark_goal`/`mark_obstacle` (ver el hallazgo, ya resuelto
+        para este repo, que documentaba `two_sessions_demo.py`)."""
+        handle = self._sim.createPrimitiveShape(
+            self._sim.primitiveshape_spheroid, [obstacle.radius * 2] * 3
+        )
+        self._sim.setShapeColor(
+            handle, "", self._sim.colorcomponent_ambient_diffuse, _OBSTACLE_COLOR
+        )
+        self._sim.setObjectAlias(handle, "obstaculo")
+        self._sim.setObjectPosition(
+            handle, -1, [obstacle.center.x, obstacle.center.y, obstacle.center.z]
         )
 
     def _drop_trail_marker(self) -> None:

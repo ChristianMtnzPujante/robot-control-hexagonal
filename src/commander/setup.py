@@ -22,6 +22,10 @@ setup(
         'console_scripts': [
             'commander_demo = commander.commander_node:main',
             'commander_demo_two_sessions = commander.two_sessions_demo:main',
+            'avoid_obstacle_demo = commander.avoid_obstacle_demo:main',
+            'avoid_obstacle_demo_joint2_90 = commander.avoid_obstacle_demo_joint2_90:main',
+            'avoid_obstacle_demo_whole_body = commander.avoid_obstacle_demo_whole_body:main',
+            'avoid_obstacle_demo_compare = commander.avoid_obstacle_demo_compare:main',
         ],
     },
 )

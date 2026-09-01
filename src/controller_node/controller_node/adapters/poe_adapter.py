@@ -142,21 +142,27 @@ def _skew(v: np.ndarray) -> np.ndarray:
     return np.array([[0, -z, y], [z, 0, -x], [-y, x, 0]])
 
 
-def _screw_axes_from_description(
+def _accumulate_joint_frames(
     description: RobotDescription,
-) -> Tuple[List[np.ndarray], np.ndarray]:
-    """Deriva los twists S_i y la pose home M acumulando los orígenes de
-    `description` (ver docstring del módulo). Generaliza la versión previa
-    (que asumía eje Z local fijo, como el CR5): usa `joint.axis` real de
-    cada articulación, y soporta `prismatic` además de `revolute`/`continuous`
-    (Modern Robotics, tabla 3.3: w=0, v=axis para prismáticas)."""
+) -> Tuple[List[np.ndarray], List[np.ndarray]]:
+    """Núcleo compartido de `_screw_axes_from_description` y
+    `_forward_kinematics_per_joint`: acumula, articulación a articulación,
+    tanto su twist S_i como la pose HOME de su propio frame (M_i -- la
+    transformada acumulada justo después de aplicar el origen de esa
+    articulación, antes de exponenciar nada). `_screw_axes_from_description`
+    históricamente solo devolvía la última (`home_pose` = M_n, la del tip);
+    aquí se exponen todas, necesarias para saber dónde está CADA
+    articulación, no solo el tip (ver ROADMAP.md, Bloque 4: "Geometría del
+    robot completo, no solo el tip")."""
     transform = np.eye(4)
     screws = []
+    joint_home_poses = []
     for joint in description.joints:
         origin = np.eye(4)
         origin[:3, :3] = _rpy_to_matrix(*joint.origin_rpy)
         origin[:3, 3] = joint.origin_xyz
         transform = transform @ origin
+        joint_home_poses.append(transform.copy())
         axis_world = transform[:3, :3] @ np.array(joint.axis)
         if joint.joint_type == "prismatic":
             w = np.zeros(3)
@@ -166,7 +172,21 @@ def _screw_axes_from_description(
             q = transform[:3, 3]
             v = -np.cross(w, q)
         screws.append(np.concatenate([w, v]))
-    return screws, transform
+    return screws, joint_home_poses
+
+
+def _screw_axes_from_description(
+    description: RobotDescription,
+) -> Tuple[List[np.ndarray], np.ndarray]:
+    """Deriva los twists S_i y la pose home M del TIP (generaliza la
+    versión previa, que asumía eje Z local fijo como el CR5: usa
+    `joint.axis` real de cada articulación, y soporta `prismatic` además de
+    `revolute`/`continuous`, Modern Robotics tabla 3.3: w=0, v=axis para
+    prismáticas). Envoltorio fino sobre `_accumulate_joint_frames` que se
+    queda solo con la última pose home (la del tip) -- ver esa función para
+    la de cada articulación."""
+    screws, joint_home_poses = _accumulate_joint_frames(description)
+    return screws, joint_home_poses[-1]
 
 
 def _se3_exp(screw: np.ndarray, theta: float) -> np.ndarray:
@@ -196,6 +216,26 @@ def _forward_kinematics(
     for screw, theta in zip(screw_axes, thetas):
         transform = transform @ _se3_exp(screw, theta)
     return transform @ home_pose
+
+
+def _forward_kinematics_per_joint(
+    screw_axes: List[np.ndarray],
+    joint_home_poses: List[np.ndarray],
+    thetas: np.ndarray,
+) -> List[np.ndarray]:
+    """T_i(θ) para CADA articulación i, no solo la última: el producto de
+    exponenciales hasta (e incluyendo) la articulación i, compuesto con SU
+    PROPIA pose home M_i -- mismo principio que `_forward_kinematics` (que
+    solo calcula la del tip, i=n) aplicado a cada prefijo de la cadena.
+    Válido porque las articulaciones i+1..n todavía no afectan al frame de
+    la articulación i (Modern Robotics, misma idea que la ec. 4.1 aplicada
+    a un frame intermedio en vez de al final de la cadena)."""
+    transform = np.eye(4)
+    poses = []
+    for screw, theta, joint_home in zip(screw_axes, thetas, joint_home_poses):
+        transform = transform @ _se3_exp(screw, theta)
+        poses.append(transform @ joint_home)
+    return poses
 
 
 def _adjoint(transform: np.ndarray) -> np.ndarray:
@@ -279,6 +319,46 @@ def _pose_to_matrix(pose: Pose) -> np.ndarray:
     return transform
 
 
+def _matrix_to_quaternion(rotation: np.ndarray) -> Tuple[float, float, float, float]:
+    """Inversa de `_quaternion_to_matrix` -- método de Shepperd (Modern
+    Robotics, apéndice B): la rama con el mayor término en el denominador
+    evita perder precisión cerca de ángulo=π. Necesaria para
+    `PoeKinematicsAdapter.forward_kinematics`: expresar una pose calculada
+    como `Pose` (cuaternión), no solo como matriz interna."""
+    trace = np.trace(rotation)
+    if trace > 0:
+        s = math.sqrt(trace + 1.0) * 2
+        qw = 0.25 * s
+        qx = (rotation[2, 1] - rotation[1, 2]) / s
+        qy = (rotation[0, 2] - rotation[2, 0]) / s
+        qz = (rotation[1, 0] - rotation[0, 1]) / s
+    elif rotation[0, 0] > rotation[1, 1] and rotation[0, 0] > rotation[2, 2]:
+        s = math.sqrt(1.0 + rotation[0, 0] - rotation[1, 1] - rotation[2, 2]) * 2
+        qw = (rotation[2, 1] - rotation[1, 2]) / s
+        qx = 0.25 * s
+        qy = (rotation[0, 1] + rotation[1, 0]) / s
+        qz = (rotation[0, 2] + rotation[2, 0]) / s
+    elif rotation[1, 1] > rotation[2, 2]:
+        s = math.sqrt(1.0 + rotation[1, 1] - rotation[0, 0] - rotation[2, 2]) * 2
+        qw = (rotation[0, 2] - rotation[2, 0]) / s
+        qx = (rotation[0, 1] + rotation[1, 0]) / s
+        qy = 0.25 * s
+        qz = (rotation[1, 2] + rotation[2, 1]) / s
+    else:
+        s = math.sqrt(1.0 + rotation[2, 2] - rotation[0, 0] - rotation[1, 1]) * 2
+        qw = (rotation[1, 0] - rotation[0, 1]) / s
+        qx = (rotation[0, 2] + rotation[2, 0]) / s
+        qy = (rotation[1, 2] + rotation[2, 1]) / s
+        qz = 0.25 * s
+    return qx, qy, qz, qw
+
+
+def _matrix_to_pose(transform: np.ndarray) -> Pose:
+    qx, qy, qz, qw = _matrix_to_quaternion(transform[:3, :3])
+    x, y, z = transform[:3, 3]
+    return Pose(x=float(x), y=float(y), z=float(z), qx=qx, qy=qy, qz=qz, qw=qw)
+
+
 class PoeKinematicsAdapter:
     def __init__(
         self,
@@ -296,9 +376,10 @@ class PoeKinematicsAdapter:
         self._damping_factor = damping_factor
         self._steps = steps
         self._joint_names = robot_description.joint_names
-        self._screw_axes, self._home_pose = _screw_axes_from_description(
+        self._screw_axes, self._joint_home_poses = _accumulate_joint_frames(
             robot_description
         )
+        self._home_pose = self._joint_home_poses[-1]
 
     def compute_trajectory(
         self, goal: Pose, current_configuration: JointConfiguration
@@ -307,6 +388,40 @@ class PoeKinematicsAdapter:
         return Trajectory.straight_line(
             current_configuration, target_configuration, self._steps
         )
+
+    def forward_kinematics(self, configuration: JointConfiguration) -> Pose:
+        """Cinemática directa: de una `JointConfiguration` a la `Pose`
+        cartesiana del tip, relativa a `base_link` (mismo frame que exige
+        `compute_trajectory` para `goal` -- ver two_sessions_demo.py). No es
+        parte de `KinematicsPort` (ese puerto solo exige IK) -- lo usan
+        adaptadores de `PlanningPort` que necesitan saber DÓNDE está el
+        robot ahora en cartesiano antes de decidir por dónde desviarse
+        (ver `obstacle_avoiding_planning_adapter.py`)."""
+        thetas = np.array(
+            [configuration.angle_of(name) for name in self._joint_names]
+        )
+        transform = _forward_kinematics(self._screw_axes, self._home_pose, thetas)
+        return _matrix_to_pose(transform)
+
+    def link_poses(self, configuration: JointConfiguration) -> List[Pose]:
+        """Pose cartesiana de CADA articulación (no solo el tip), en orden
+        de cadena cinemática y en el mismo marco que `forward_kinematics`
+        (relativo a `base_link`) -- `link_poses(...)[-1]` es exactamente
+        `forward_kinematics(...)`, por construcción (no hay ningún eslabón
+        estático después de la última articulación en `RobotDescription`).
+        Ver ROADMAP.md, Bloque 4 ("Geometría del robot completo, no solo el
+        tip"): un `PlanningPort` que evite colisiones de cuerpo completo
+        necesita esto, no solo la pose del tip -- las 'aristas' del robot
+        son los segmentos entre poses consecutivas de esta lista (y entre
+        el origen de `base_link`, siempre (0,0,0) en este marco, y la
+        primera)."""
+        thetas = np.array(
+            [configuration.angle_of(name) for name in self._joint_names]
+        )
+        transforms = _forward_kinematics_per_joint(
+            self._screw_axes, self._joint_home_poses, thetas
+        )
+        return [_matrix_to_pose(t) for t in transforms]
 
     def _inverse_kinematics(
         self, goal: Pose, current_configuration: JointConfiguration
