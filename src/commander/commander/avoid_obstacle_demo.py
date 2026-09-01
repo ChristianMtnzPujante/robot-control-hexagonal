@@ -50,7 +50,14 @@ from controller_node.adapters.obstacle_avoiding_planning_adapter import (
     ObstacleAvoidingPlanningAdapter,
 )
 from controller_node.adapters.poe_adapter import PoeKinematicsAdapter
-from shared_kernel import JointConfiguration, JointPosition, Point, Pose, Scene, SphereObstacle
+from shared_kernel import (
+    JointConfiguration,
+    JointPosition,
+    Point,
+    Pose,
+    Scene,
+    SphereObstacle,
+)
 
 from .coppeliasim_scene_builder import build_cr5_scene, ensure_coppeliasim_running
 
@@ -75,21 +82,32 @@ _CLEARANCE = 0.05
 _WAYPOINT_PAUSE_SECONDS = 0.3
 
 
-def main() -> None:
-    ensure_coppeliasim_running(port=_ZMQ_PORT, settings_suffix="_avoid_obstacle_demo")
+def run(
+    initial_configuration: JointConfiguration,
+    goal: Pose,
+    obstacle: SphereObstacle,
+    clearance: float = _CLEARANCE,
+    port: int = _ZMQ_PORT,
+) -> None:
+    """Cuerpo reutilizable del demo: construye la escena para la
+    `initial_configuration`/`obstacle` dadas, planifica hacia `goal`
+    evitándolo, y ejecuta la trayectoria contra CoppeliaSim real. Permite
+    definir otros ejemplos (otra postura inicial, otro obstáculo/goal) sin
+    duplicar la orquestación -- ver `avoid_obstacle_demo_joint2_90.py`."""
+    ensure_coppeliasim_running(port=port, settings_suffix="_avoid_obstacle_demo")
 
-    scene = Scene.empty().with_obstacle(_OBSTACLE)
+    scene = Scene.empty().with_obstacle(obstacle)
     robot = build_cr5_scene(
-        port=_ZMQ_PORT,
-        initial_configuration=_INITIAL_CONFIGURATION,
+        port=port,
+        initial_configuration=initial_configuration,
         scene=scene,
     )
-    robot.mark_goal(_GOAL)
+    robot.mark_goal(goal)
 
     kinematics = PoeKinematicsAdapter()
-    planner = ObstacleAvoidingPlanningAdapter(kinematics, clearance=_CLEARANCE)
+    planner = ObstacleAvoidingPlanningAdapter(kinematics, clearance=clearance)
 
-    trajectory = planner.compute_trajectory(_GOAL, _INITIAL_CONFIGURATION, scene)
+    trajectory = planner.compute_trajectory(goal, initial_configuration, scene)
     print(
         f"Trayectoria calculada: {len(trajectory.waypoints)} waypoints "
         f"(evitando {len(scene.obstacles)} obstáculo(s))"
@@ -104,6 +122,10 @@ def main() -> None:
         "rodear la esfera naranja (obstáculo) y el último debería coincidir "
         "con el dummy rojo (objetivo)."
     )
+
+
+def main() -> None:
+    run(_INITIAL_CONFIGURATION, _GOAL, _OBSTACLE)
 
 
 if __name__ == "__main__":
