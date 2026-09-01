@@ -2,10 +2,18 @@
 ejecución/cinemática (`shared_kernel`) y el futuro contexto de percepción
 (`perception_node`, pendiente -- ver ROADMAP.md, Bloque 3).
 
-Representación provisional: coordenadas cartesianas planas, no álgebra
-geométrica conforme (CGA) real todavía (ROADMAP.md, Bloque 1). Cuando esa
-investigación aterrice, estas clases podrán reimplementarse por debajo con
-multivectores de verdad sin que su forma pública tenga que cambiar.
+Representación cartesiana -- la que usan PoE/DH, no álgebra geométrica
+conforme (CGA) real. Decisión revisada (ver ROADMAP.md, Bloque 1): estas
+clases NO se reimplementarán por debajo con multivectores cuando GA
+aterrice -- PoE y CGA son bounded contexts distintos, cada uno con su
+propio lenguaje geométrico (cartesiano vs conforme), no un modelo
+compartido cuyo interior se intercambia sin más (eso sería forzar un
+Shared Kernel entre dos álgebras que no tienen por qué acoplarse). En su
+lugar, un futuro paquete de primitivas conformes definiría sus propios
+tipos (multivectores; tabla de traducción ya en
+docs/algebra_geometrica_conforme.md §2), y quien construya la escena
+traduciría explícitamente entre ambos -- cada `KinematicsPort`/
+`PlanningPort` consume la representación que corresponda a su álgebra.
 """
 
 from __future__ import annotations

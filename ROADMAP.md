@@ -67,6 +67,19 @@ aborde todavía.
       Algebra for Computer Science* (Dorst/Fontijne/Mann), incluye además
       cinemática directa/inversa en CGA (Bloque 0) y ajuste de esfera a
       puntos (Bloque 3).
+- [ ] Decisión de diseño (discutida en la rama de experimentación
+      planificador-evita-obstaculo, ver también la tarea de Bloque 4 sobre
+      geometría del robot completo): PoE y CGA son bounded contexts
+      distintos, cada uno con su propio lenguaje geométrico — cuando GA
+      aterrice, `Scene`/las primitivas de `geometry_kernel` NO se
+      reinterpretan por debajo con multivectores (revisado; `Scene` y
+      `primitives.py` ya no dicen esto). En su lugar, definir una `Scene`
+      conforme aparte, con sus propios tipos (multivectores), y la tabla de
+      traducción cartesiano→CGA ya documentada en
+      `docs/algebra_geometrica_conforme.md` §2 como el punto único donde se
+      traduce explícitamente entre ambas — cada `KinematicsPort`/
+      `PlanningPort` consume la representación de su propia álgebra, no una
+      forma neutra forzada entre las dos.
 
 ## Bloque 2 — Investigación: estado del arte (en paralelo al resto)
 

@@ -74,11 +74,15 @@ en ese instante. Esto es deliberado: evita que `PlanningPort`/
 `PlannerSelectionPort` tengan que preocuparse de sincronización o de leer
 una escena a medio actualizar.
 
-**Representación:** cartesiana (Point/Plane/SphereObstacle), no CGA real
-todavía — ver `docs/algebra_geometrica_conforme.md` para el mapeo previsto
-cuando `pygafro` esté disponible (Bloque 1). El día que eso pase, `Scene`
-no cambia de forma pública: solo cambia lo que hay dentro de cada
-primitiva.
+**Representación:** cartesiana (Point/Plane/SphereObstacle) -- la que usan
+PoE/DH. Decisión revisada (ver ROADMAP.md, Bloque 1): cuando `pygafro`
+esté disponible, esta `Scene` NO se reinterpreta por debajo con
+multivectores -- PoE y CGA son bounded contexts distintos, cada uno con su
+propio lenguaje geométrico, no un modelo compartido cuyo interior se
+intercambia. Habrá una `Scene` conforme aparte (tipos propios, tabla de
+traducción ya en `docs/algebra_geometrica_conforme.md` §2), y cada
+`KinematicsPort`/`PlanningPort` consumirá la que corresponda a su álgebra
+-- quien construya la escena traduce explícitamente entre ambas.
 
 ## 4. Quién decide qué puerto usar — `PlannerSelectionPort`
 
