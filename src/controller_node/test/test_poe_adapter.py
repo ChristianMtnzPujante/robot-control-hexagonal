@@ -147,6 +147,28 @@ def _single_prismatic_description() -> RobotDescription:
     return RobotDescription.create(joints, base_link="base", tip_link="slide").value
 
 
+def test_forward_kinematics_matches_the_closed_form_pose_for_two_dof_robot():
+    """Redondo con la FK cerrada a mano de _two_dof_planar_description:
+    forward_kinematics(thetas) debe reproducir exactamente el mismo Pose
+    que se usó como goal en test_poe_adapter_converges_for_two_dof_synthetic_robot."""
+    description = _two_dof_planar_description()
+    adapter = PoeKinematicsAdapter(robot_description=description)
+
+    theta1, theta2 = 0.4, 0.3
+    phi = theta1 + theta2
+    configuration = JointConfiguration.create(
+        [JointPosition("j1", theta1), JointPosition("j2", theta2)]
+    ).value
+
+    pose = adapter.forward_kinematics(configuration)
+
+    assert pose.x == pytest.approx(math.cos(theta1), abs=1e-9)
+    assert pose.y == pytest.approx(math.sin(theta1), abs=1e-9)
+    assert pose.z == pytest.approx(0.0, abs=1e-9)
+    assert pose.qz == pytest.approx(math.sin(phi / 2), abs=1e-9)
+    assert pose.qw == pytest.approx(math.cos(phi / 2), abs=1e-9)
+
+
 def test_poe_adapter_converges_for_prismatic_joint():
     """FK cerrada a mano: posición=(0,0,theta), orientación=identidad."""
     description = _single_prismatic_description()

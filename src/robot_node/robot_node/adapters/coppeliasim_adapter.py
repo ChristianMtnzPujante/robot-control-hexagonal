@@ -24,10 +24,11 @@ import time
 from typing import Dict, List, Optional
 
 from coppeliasim_zmqremoteapi_client import RemoteAPIClient
-from shared_kernel import JointConfiguration, JointPosition, Pose
+from shared_kernel import JointConfiguration, JointPosition, Pose, SphereObstacle
 
 _GOAL_COLOR = [1.0, 0.0, 0.0] * 4  # rojo: objetivo cartesiano
 _TRAIL_COLOR = [0.0, 0.4, 1.0] * 4  # azul: waypoints intermedios
+_OBSTACLE_COLOR = [1.0, 0.55, 0.0]  # naranja: obstáculo a evitar
 
 
 class CoppeliaSimRobotAdapter:
@@ -83,6 +84,49 @@ class CoppeliaSimRobotAdapter:
         self._sim.setObjectPosition(
             self._goal_dummy_handle, -1, [goal.x, goal.y, goal.z]
         )
+
+    def mark_obstacle(self, obstacle: SphereObstacle) -> None:
+        """Cosmético, igual que `mark_goal`: no forma parte de
+        `RobotControllerPort`, solo ayuda a ver en la escena lo que un
+        `PlanningPort` está evitando (ver
+        `controller_node/adapters/obstacle_avoiding_planning_adapter.py`).
+        Crea una esfera visual real del radio del obstáculo -- sin física
+        (options=0: no se marca dynamic ni no-respondable a propósito,
+        puramente decorativa mientras nada del sistema lea colisiones de
+        verdad).
+
+        MISMA limitación de frame que `mark_goal`: `setObjectPosition` con
+        parent=-1 coloca en coordenadas de MUNDO, mientras que `Pose`/
+        `SphereObstacle` viven en el marco interno de `KinematicsPort` (ver
+        `PoeKinematicsAdapter`), que NO coincide con el de CoppeliaSim (ver
+        `two_sessions_demo.py`) -- quien llame a `mark_goal`/`mark_obstacle`
+        con coordenadas del marco interno debe transformarlas antes a marco
+        mundo (ver `get_tip_world_matrix` + `avoid_obstacle_demo.py`, donde
+        se calibra esa transformación una vez por sesión)."""
+        handle = self._sim.createPrimitiveShape(
+            self._sim.primitiveshape_spheroid, [obstacle.radius * 2] * 3
+        )
+        self._sim.setShapeColor(
+            handle, "", self._sim.colorcomponent_ambient_diffuse, _OBSTACLE_COLOR
+        )
+        self._sim.setObjectAlias(handle, "obstaculo")
+        self._sim.setObjectPosition(
+            handle, -1, [obstacle.center.x, obstacle.center.y, obstacle.center.z]
+        )
+
+    def get_tip_world_matrix(self) -> Optional[List[float]]:
+        """Matriz de transformación mundo del objeto `tip_name` (fila a
+        fila, 3x4: rotación 3x3 + traslación), tal como la da
+        `sim.getObjectMatrix(handle, -1)` -- `None` sin `tip_name`. Único
+        punto de verdad físico sobre dónde está el tip en CoppeliaSim; sirve
+        para calibrar la transformación rígida entre el marco mundo y el
+        marco interno de `KinematicsPort` (ver `avoid_obstacle_demo.py`),
+        que un `PlanningPort` no puede conocer por sí mismo -- por eso vive
+        aquí, en el adaptador que sí habla con CoppeliaSim, y no en
+        `shared_kernel`/`geometry_kernel`."""
+        if self._tip_handle is None:
+            return None
+        return list(self._sim.getObjectMatrix(self._tip_handle, -1))
 
     def _drop_trail_marker(self) -> None:
         # Sin tip_name no sabemos qué objeto leer para la posición cartesiana

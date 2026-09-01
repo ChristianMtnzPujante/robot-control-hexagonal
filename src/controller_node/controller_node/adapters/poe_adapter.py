@@ -279,6 +279,46 @@ def _pose_to_matrix(pose: Pose) -> np.ndarray:
     return transform
 
 
+def _matrix_to_quaternion(rotation: np.ndarray) -> Tuple[float, float, float, float]:
+    """Inversa de `_quaternion_to_matrix` -- método de Shepperd (Modern
+    Robotics, apéndice B): la rama con el mayor término en el denominador
+    evita perder precisión cerca de ángulo=π. Necesaria para
+    `PoeKinematicsAdapter.forward_kinematics`: expresar una pose calculada
+    como `Pose` (cuaternión), no solo como matriz interna."""
+    trace = np.trace(rotation)
+    if trace > 0:
+        s = math.sqrt(trace + 1.0) * 2
+        qw = 0.25 * s
+        qx = (rotation[2, 1] - rotation[1, 2]) / s
+        qy = (rotation[0, 2] - rotation[2, 0]) / s
+        qz = (rotation[1, 0] - rotation[0, 1]) / s
+    elif rotation[0, 0] > rotation[1, 1] and rotation[0, 0] > rotation[2, 2]:
+        s = math.sqrt(1.0 + rotation[0, 0] - rotation[1, 1] - rotation[2, 2]) * 2
+        qw = (rotation[2, 1] - rotation[1, 2]) / s
+        qx = 0.25 * s
+        qy = (rotation[0, 1] + rotation[1, 0]) / s
+        qz = (rotation[0, 2] + rotation[2, 0]) / s
+    elif rotation[1, 1] > rotation[2, 2]:
+        s = math.sqrt(1.0 + rotation[1, 1] - rotation[0, 0] - rotation[2, 2]) * 2
+        qw = (rotation[0, 2] - rotation[2, 0]) / s
+        qx = (rotation[0, 1] + rotation[1, 0]) / s
+        qy = 0.25 * s
+        qz = (rotation[1, 2] + rotation[2, 1]) / s
+    else:
+        s = math.sqrt(1.0 + rotation[2, 2] - rotation[0, 0] - rotation[1, 1]) * 2
+        qw = (rotation[1, 0] - rotation[0, 1]) / s
+        qx = (rotation[0, 2] + rotation[2, 0]) / s
+        qy = (rotation[1, 2] + rotation[2, 1]) / s
+        qz = 0.25 * s
+    return qx, qy, qz, qw
+
+
+def _matrix_to_pose(transform: np.ndarray) -> Pose:
+    qx, qy, qz, qw = _matrix_to_quaternion(transform[:3, :3])
+    x, y, z = transform[:3, 3]
+    return Pose(x=float(x), y=float(y), z=float(z), qx=qx, qy=qy, qz=qz, qw=qw)
+
+
 class PoeKinematicsAdapter:
     def __init__(
         self,
@@ -307,6 +347,20 @@ class PoeKinematicsAdapter:
         return Trajectory.straight_line(
             current_configuration, target_configuration, self._steps
         )
+
+    def forward_kinematics(self, configuration: JointConfiguration) -> Pose:
+        """Cinemática directa: de una `JointConfiguration` a la `Pose`
+        cartesiana del tip, relativa a `base_link` (mismo frame que exige
+        `compute_trajectory` para `goal` -- ver two_sessions_demo.py). No es
+        parte de `KinematicsPort` (ese puerto solo exige IK) -- lo usan
+        adaptadores de `PlanningPort` que necesitan saber DÓNDE está el
+        robot ahora en cartesiano antes de decidir por dónde desviarse
+        (ver `obstacle_avoiding_planning_adapter.py`)."""
+        thetas = np.array(
+            [configuration.angle_of(name) for name in self._joint_names]
+        )
+        transform = _forward_kinematics(self._screw_axes, self._home_pose, thetas)
+        return _matrix_to_pose(transform)
 
     def _inverse_kinematics(
         self, goal: Pose, current_configuration: JointConfiguration
