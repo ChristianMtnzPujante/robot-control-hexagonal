@@ -117,39 +117,16 @@ aborde todavía.
       actuales", desacoplado de la implementación de visión. Ya
       implementado (`StaticPerceptionAdapter`, `perception_node`) desde el
       31/08 — quedó sin marcar hasta ahora.
-- [ ] **Spike corto: ciclo de vida de nodos/sesiones en ROS2, y cómo lo
-      gestionamos aquí.** Investigación previa al pseudo-perceptor de
-      abajo, no implementación -- entender esto primero condiciona cómo se
-      cablea lo demás. Preguntas concretas a responder:
-        - ¿`robot_node`/`controller_node`/`commander` usan `rclpy.node.Node`
-          normal o el mecanismo "oficial" de ROS2 para esto
-          (`LifecycleNode`/managed nodes, con estados
-          unconfigured→inactive→active→finalized)? (Spoiler: hoy, `Node`
-          normal -- dejarlo explícito como punto de partida, no dado por
-          hecho.)
-        - ¿Dónde vive el ciclo de vida de una `ControlSession` HOY?
-          `control_session.py`: cada nodo es un PROCESO real
-          (`subprocess.Popen`, no un hilo ni un nodo gestionado), `start()`
-          los lanza, `stop()` los termina con gracia (`terminate()` +
-          timeout 5s + `kill()` si no responde) -- soporta además
-          `with ControlSession(...) as session:` como gestor de contexto
-          Python. Nada de esto es "ciclo de vida ROS2", es gestión de
-          proceso a mano.
-        - ¿Qué mecanismo ya existe en el repo para cambiar algo SIN
-          relanzar la sesión? El topic `set_strategy` (Bloque 0/2,
-          `controller_node.py`) -- único precedente real de "reconfigurar
-          en caliente" hoy. Usarlo de plantilla.
-        - Para el pseudo-perceptor: cuando "detecta" algo nuevo, ¿vive
-          DENTRO de una `ControlSession` ya arrancada (mismo namespace,
-          mismo ciclo de vida que robot_node/controller_node) o es un
-          proceso/nodo aparte, de vida propia, al que `Commander` se
-          limita a escuchar? ¿Su ciclo de vida debe coincidir con el de la
-          sesión a la que sirve, o puede sobrevivirla (detectar antes de
-          que exista sesión, o seguir corriendo si la sesión se cierra)?
-        - Repasar por qué `GOAL_QOS` (TRANSIENT_LOCAL) hace que el ORDEN de
-          arranque entre nodos no importe hoy (ver docs/nodos_ros2.md) --
-          ¿el pseudo-perceptor necesita la misma garantía para que un
-          evento no se pierda si `Commander` todavía no está escuchando?
+- [ ] **Spike corto, acotado a una sola pregunta:** cuando el
+      pseudo-perceptor de abajo "detecta" algo nuevo, ¿vive DENTRO de una
+      `ControlSession` ya arrancada (mismo namespace, mismo ciclo de vida
+      que `robot_node`/`controller_node` -- procesos reales via
+      `subprocess.Popen`, ver `control_session.py`) o es un proceso/nodo
+      aparte, de vida propia, al que `Commander` se limita a escuchar?
+      ¿Debe coincidir su ciclo de vida con el de la sesión a la que sirve,
+      o puede sobrevivirla? Investigación previa al pseudo-perceptor, no
+      implementación -- responderla primero condiciona cómo se cablea lo
+      demás.
 - [ ] **Pseudo-perceptor** (paso previo, más simple, a "ground truth de
       CoppeliaSim" de abajo): un `PerceptionPort` que, a diferencia de
       `StaticPerceptionAdapter` (fijo desde construcción), permita
