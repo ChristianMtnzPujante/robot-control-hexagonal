@@ -116,6 +116,22 @@ aborde todavía.
 
 ## Bloque 4 — Planificador reactivo con evitación (Régimen 2, rápido)
 
+- [ ] Geometría del robot completo, no solo el tip: hoy la evitación de
+      obstáculos (incluida `ObstacleAvoidingPlanningAdapter`, rama de
+      experimentación) solo comprueba la trayectoria de un punto — el
+      efector — pero un robot real puede colisionar con cualquier eslabón,
+      no solo con la punta. Hace falta poder consultar, para una
+      `JointConfiguration` dada, la pose de CADA articulación/eslabón, no
+      solo la del tip: `PoeKinematicsAdapter` ya acumula internamente las
+      transformadas intermedias por articulación para llegar a la del tip
+      (`_forward_kinematics`, ver `poe_adapter.py`) — falta exponerlas
+      todas, no solo la última. Para robots de geometría conocida (como el
+      CR5, vía `RobotDescription` — Bloque 9) esto se deriva directamente
+      sin percepción; ver también Bloque 1 (CGA): representar cada eslabón
+      como una recta podría ser la forma natural de comprobar distancia a
+      los `SphereObstacle` de la `Scene` (CGA representa líneas de forma
+      nativa — comprobar si `gafro`/`pygafro` ya lo resuelve antes de
+      construirlo a mano).
 - [ ] Adaptador tipo CHOMP mínimo (gradiente, evita regiones/esferas CGA
       del Bloque 3) como nueva `strategy` de `controller_node` — mismo
       patrón que ya usa `_build_adapter`.
