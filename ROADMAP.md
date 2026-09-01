@@ -112,9 +112,37 @@ aborde todavía.
 
 ## Bloque 3 — Percepción y grounding (el cuello de botella real)
 
-- [ ] Nuevo puerto `PerceptionPort` en `shared_kernel` (protocolo, igual
+- [x] Nuevo puerto `PerceptionPort` en `shared_kernel` (protocolo, igual
       que `KinematicsPort`): "detecta plano X", "lista obstáculos
-      actuales", desacoplado de la implementación de visión.
+      actuales", desacoplado de la implementación de visión. Ya
+      implementado (`StaticPerceptionAdapter`, `perception_node`) desde el
+      31/08 — quedó sin marcar hasta ahora.
+- [ ] **Pseudo-perceptor** (paso previo, más simple, a "ground truth de
+      CoppeliaSim" de abajo): un `PerceptionPort` que, a diferencia de
+      `StaticPerceptionAdapter` (fijo desde construcción), permita
+      "inyectar" eventos con el tiempo — un nuevo obstáculo "detectado", un
+      "objetivo" nuevo a seguir — sin cámara ni visión real todavía,
+      puramente programático. Primera fase: procesado desde `Commander` (o
+      un demo que haga sus veces) — cuando llega un evento nuevo, se
+      actualiza la `Scene` y se manda una orden en consecuencia (recalcular
+      con `WholeBodyObstacleAvoidingPlanningAdapter`/
+      `ObstacleAvoidingPlanningAdapter` de la rama de experimentación, y
+      reenviar waypoints). Es la versión más mínima posible de
+      "Replanificación local cuando cambia el campo de obstáculos" (Bloque
+      4, todavía pendiente) — aquí el "cambio" lo dispara código, no un
+      sensor real.
+- [ ] **Decisión de diseño, de cara al futuro (Bloque 6 — LLM vía tools):**
+      cualquier adaptador de `PerceptionPort` (empezando por el
+      pseudo-perceptor de arriba) debería, al configurarse, ANUNCIAR qué
+      tipo de información envía junto con una descripción — igual que una
+      tool de MCP declara su schema y su descripción — para que un futuro
+      LLM pueda descubrir qué perceptores hay disponibles y qué reportan
+      sin tener que leer el código. En esta fase no hace falta que nada lo
+      consuma todavía (no hay LLM en el bucle) — pero el desarrollo simple
+      (el pseudo-perceptor) debería nacer ya con ese metadato (nombre +
+      descripción + forma del dato que reporta) para no tener que
+      retrofit-earlo cuando llegue el Bloque 6. Ver la tarea "Diseñar
+      superficie de la API de tools" de ese bloque.
 - [ ] Adaptador de percepción para CoppeliaSim primero (ground truth
       simulado vía API de la escena) — evita depender de visión real desde
       el minuto uno.
@@ -176,7 +204,10 @@ aborde todavía.
       como tools de alto nivel (crear `ControlSession`, listar estrategias
       de planificador disponibles, consultar percepción/escena del
       Bloque 3, definir región de obstáculo, arrancar/detener sesión,
-      consultar `feedback`).
+      consultar `feedback`). Incluye la auto-descripción de perceptores ya
+      anotada en el Bloque 3: cada `PerceptionPort` debería declarar su
+      propio nombre/descripción/forma del dato, al estilo del schema de una
+      tool de MCP, para que esta API pueda listarlos sin hardcodear nada.
 - [ ] Formalizar cada tool con un schema tipado (parámetros, validación de
       entrada) — esto sustituye a "validar código generado": aquí no hay
       código que auditar, solo invocaciones a funciones ya verificadas del
