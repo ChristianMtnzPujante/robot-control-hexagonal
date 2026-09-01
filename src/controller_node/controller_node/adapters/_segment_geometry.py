@@ -5,6 +5,27 @@ que solo mira el segmento del tip, y
 eslabón del robot) -- extraído para no duplicar la misma matemática dos
 veces. Puramente numérico (`numpy`), sin depender de `shared_kernel` salvo
 por el tipo `SphereObstacle`.
+
+Todas las funciones de este módulo son agnósticas del marco de referencia
+-- operan sobre los `np.ndarray` (x,y,z) que les pases, sean los que sean.
+En la práctica, quien las llama (los dos planificadores) siempre les pasa
+coordenadas CARTESIANAS relativas a `base_link` -- el mismo marco que usa
+`PoeKinematicsAdapter` para `forward_kinematics`/`link_poses`/el `goal` de
+`compute_trajectory` (ver su docstring). NO es espacio de articulaciones
+ni CGA (que no existe todavía, ver ROADMAP.md Bloque 1). Por eso el
+`SphereObstacle.center` de un obstáculo hay que definirlo en ese mismo
+marco -- si se define en coordenadas de mundo de CoppeliaSim "a ojo", solo
+coincidirá con lo que ve el planificador si `base_link` está en el origen
+del mundo (que es el caso hoy, mismo hallazgo de
+`coppeliasim_scene_builder.py`, pero no algo que este módulo garantice).
+
+`radius + clearance` aparece en varias funciones: `radius` es el tamaño
+real del `SphereObstacle` (metros); `clearance` es un margen de seguridad
+ADICIONAL, elegido al construir el planificador, independiente del tamaño
+del obstáculo. La suma es la distancia mínima exigida entre el punto más
+cercano de un segmento y el CENTRO del obstáculo -- no basta con no tocar
+su superficie (distancia > radius), se exige además quedarse `clearance`
+metros más allá de ella.
 """
 
 from __future__ import annotations
