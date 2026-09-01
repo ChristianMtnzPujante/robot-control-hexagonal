@@ -22,7 +22,12 @@ def closest_point_on_segment(
     segment = end - start
     segment_length_sq = float(segment @ segment)
     if segment_length_sq < 1e-12:
+        # start == end (segmento degenerado): el "más cercano" es el propio punto.
         return start
+    # Proyección escalar de (point - start) sobre el segmento, normalizada
+    # por su longitud al cuadrado -- t=0 en start, t=1 en end. Se recorta a
+    # [0,1] para que el resultado no se salga del segmento (si no, un punto
+    # "detrás" de start o "delante" de end daría una proyección fuera de rango).
     t = float(np.clip((point - start) @ segment / segment_length_sq, 0.0, 1.0))
     return start + t * segment
 
@@ -54,11 +59,14 @@ def worst_intersection(
         closest = closest_point_on_segment(start, end, center)
         distance = float(np.linalg.norm(closest - center))
         required = obstacle.radius + clearance
+        # penetration > 0 significa que el segmento pasa MÁS CERCA del
+        # centro que el margen mínimo permitido (radio + clearance) --
+        # cuanto mayor, más invade.
         penetration = required - distance
         if penetration <= 0:
-            continue
+            continue  # este obstáculo no llega a tocar el segmento, se ignora
         if worst is None or penetration > worst[2]:
-            worst = (obstacle, center, penetration)
+            worst = (obstacle, center, penetration)  # el peor hasta ahora
     if worst is None:
         return None
     return worst[0], worst[1]
@@ -81,11 +89,20 @@ def detour_point(
     clearance: float,
 ) -> np.ndarray:
     closest = closest_point_on_segment(start, end, center)
+    # Vector "lejos del centro": del centro del obstáculo hacia el punto
+    # del segmento más próximo a él -- esa es la dirección en la que hay
+    # que salirse para dejar de invadirlo.
     away = closest - center
     distance = float(np.linalg.norm(away))
     required = obstacle.radius + clearance
     if distance > 1e-6:
         direction = away / distance
     else:
+        # Caso degenerado: el centro cae justo sobre la recta (distance≈0),
+        # "away" no tiene dirección fiable -- usar un lateral perpendicular
+        # al segmento en su lugar.
         direction = lateral_direction(end - start)
+    # El punto de desvío queda exactamente a `required` del centro, en esa
+    # dirección -- ni más cerca (seguiría invadiendo) ni más lejos de lo
+    # necesario.
     return center + direction * required

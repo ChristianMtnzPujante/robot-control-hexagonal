@@ -55,14 +55,24 @@ class ObstacleAvoidingPlanningAdapter:
         current_configuration: JointConfiguration,
         scene: Scene,
     ) -> Trajectory:
+        # 1. Dónde está el tip AHORA MISMO en cartesiano -- forward_kinematics,
+        # no algo que sepamos de antemano (current_configuration solo trae
+        # ángulos de articulación).
         start_pose = self._kinematics.forward_kinematics(current_configuration)
         start = np.array([start_pose.x, start_pose.y, start_pose.z])
         goal_xyz = np.array([goal.x, goal.y, goal.z])
 
+        # 2. ¿La línea recta start->goal invade algún obstáculo? Si no hay
+        # ninguno (o ninguno lo bastante cerca), vía libre: IK directa al
+        # goal, sin más -- este planificador se limita a ser una envoltura
+        # transparente en el caso fácil.
         hit = worst_intersection(start, goal_xyz, scene.obstacles, self._clearance)
         if hit is None:
             return self._kinematics.compute_trajectory(goal, current_configuration)
 
+        # 3. Hay colisión: calcular UN punto de paso que rodee al obstáculo
+        # que peor invade, conservando la orientación del goal (no se
+        # interpola orientación, es una simplificación deliberada).
         obstacle, center = hit
         via_xyz = detour_point(start, goal_xyz, obstacle, center, self._clearance)
         via_pose = Pose(
@@ -75,6 +85,11 @@ class ObstacleAvoidingPlanningAdapter:
             qw=goal.qw,
         )
 
+        # 4. Dos tramos, cada uno resuelto por el KinematicsPort recibido
+        # (nunca por este planificador): primero hasta el punto de paso,
+        # luego desde ahí hasta el goal real -- y se concatenan los
+        # waypoints sin duplicar el de unión (to_goal.waypoints[1:] se
+        # salta el primero, que es el mismo que el último de to_via).
         to_via = self._kinematics.compute_trajectory(via_pose, current_configuration)
         via_configuration = to_via.waypoints[-1]
         to_goal = self._kinematics.compute_trajectory(goal, via_configuration)
