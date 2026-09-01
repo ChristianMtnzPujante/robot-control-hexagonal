@@ -98,11 +98,13 @@ class CoppeliaSimRobotAdapter:
         MISMA limitación de frame que `mark_goal`: `setObjectPosition` con
         parent=-1 coloca en coordenadas de MUNDO, mientras que `Pose`/
         `SphereObstacle` viven en el marco interno de `KinematicsPort` (ver
-        `PoeKinematicsAdapter`), que NO coincide con el de CoppeliaSim (ver
-        `two_sessions_demo.py`) -- quien llame a `mark_goal`/`mark_obstacle`
-        con coordenadas del marco interno debe transformarlas antes a marco
-        mundo (ver `get_tip_world_matrix` + `avoid_obstacle_demo.py`, donde
-        se calibra esa transformación una vez por sesión)."""
+        `PoeKinematicsAdapter`), que solo coincide con el de CoppeliaSim si
+        el robot está en el origen del mundo con orientación identidad (ver
+        `commander/coppeliasim_scene_builder.py`, que lo garantiza al
+        importar desde URDF sin recentrar) -- con una escena hecha a mano
+        donde el robot esté en otra pose, habría que transformar antes de
+        llamar a `mark_goal`/`mark_obstacle` (ver el hallazgo, ya resuelto
+        para este repo, que documentaba `two_sessions_demo.py`)."""
         handle = self._sim.createPrimitiveShape(
             self._sim.primitiveshape_spheroid, [obstacle.radius * 2] * 3
         )
@@ -113,20 +115,6 @@ class CoppeliaSimRobotAdapter:
         self._sim.setObjectPosition(
             handle, -1, [obstacle.center.x, obstacle.center.y, obstacle.center.z]
         )
-
-    def get_tip_world_matrix(self) -> Optional[List[float]]:
-        """Matriz de transformación mundo del objeto `tip_name` (fila a
-        fila, 3x4: rotación 3x3 + traslación), tal como la da
-        `sim.getObjectMatrix(handle, -1)` -- `None` sin `tip_name`. Único
-        punto de verdad físico sobre dónde está el tip en CoppeliaSim; sirve
-        para calibrar la transformación rígida entre el marco mundo y el
-        marco interno de `KinematicsPort` (ver `avoid_obstacle_demo.py`),
-        que un `PlanningPort` no puede conocer por sí mismo -- por eso vive
-        aquí, en el adaptador que sí habla con CoppeliaSim, y no en
-        `shared_kernel`/`geometry_kernel`."""
-        if self._tip_handle is None:
-            return None
-        return list(self._sim.getObjectMatrix(self._tip_handle, -1))
 
     def _drop_trail_marker(self) -> None:
         # Sin tip_name no sabemos qué objeto leer para la posición cartesiana

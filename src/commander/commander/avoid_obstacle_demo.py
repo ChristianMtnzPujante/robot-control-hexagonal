@@ -1,149 +1,95 @@
 """Demo de experimentación (rama `experimento/planificador-evita-obstaculo`,
-ver ROADMAP.md Bloque 4): compone `KinematicsPort` (`PoeKinematicsAdapter`,
-cinemática propia vía PoE) + `PlanningPort`
+ver ROADMAP.md Bloque 4 y Bloque 9): compone `KinematicsPort`
+(`PoeKinematicsAdapter`, cinemática propia vía PoE) + `PlanningPort`
 (`ObstacleAvoidingPlanningAdapter`, evitación mínima de un obstáculo
 esférico) + `RobotControllerPort` (`CoppeliaSimRobotAdapter`) directamente,
 sin pasar por `ControlSession`/`ControllerNode` -- `PlanningPort` todavía no
 está wireado dentro del grafo de nodos ROS2 (ver
-docs/pipeline_percepcion_planificacion.md §6), así que no hay ningún topic
-nuevo que crear para probar esto de verdad. No necesita `rclpy`: es
-composición de puertos en Python puro, igual que un test, salvo que aquí el
-`RobotControllerPort` es CoppeliaSim de verdad en vez de un stub.
+docs/pipeline_percepcion_planificacion.md §6). No necesita `rclpy`.
 
-Goal y obstáculo están definidos en el marco INTERNO de `PoeKinematicsAdapter`
-(el que exige `KinematicsPort`/`PlanningPort` -- ver `two_sessions_demo.py`):
-  - AVISO real de esta rama: la configuración de reposo con la que arranca
-    `cr5_base.ttt` (joint3=joint4=-pi/2, resto 0) NO es la misma que la
-    configuración "home" (todos los ángulos a 0) que usa
-    `PoeKinematicsAdapter`/`_DEFAULT_CR5_DESCRIPTION` como referencia para
-    derivar los twists -- son dos cosas distintas que es fácil confundir (lo
-    hice yo mismo en la primera versión de este demo).
-  - Postura de reposo real (medida vía `forward_kinematics`, marco interno):
-    (0.357, -0.246, 0.458), orientación ~90° sobre X.
-  - Goal: mismo eje de orientación, movido a (0.20, 0.20, 0.35) -- convergió
-    numéricamente desde esa postura real (distancia ~0.485 m, comprobado
-    antes de fijarlo aquí).
+SEGUNDA versión de esta rama: ya NO depende de `cr5_base.ttt` (el `.ttt`
+hecho a mano del que veníamos, con los problemas de arranque/estabilidad
+que daba y una postura de reposo que no coincidía con la "home" matemática
+de `PoeKinematicsAdapter`). En su lugar, `coppeliasim_scene_builder`
+construye la escena por código a partir de una descripción -- qué robot
+(CR5, importado de su URDF real), en qué postura inicial, qué `Scene` de
+dominio (obstáculos) -- y la ejecuta contra una instancia de CoppeliaSim en
+blanco. Efecto colateral importante: al importar el URDF sin recentrar el
+modelo, `base_link_respondable` queda exactamente en el origen del mundo,
+así que el marco interno de `PoeKinematicsAdapter` (relativo a `base_link`)
+coincide con el marco mundo de CoppeliaSim POR CONSTRUCCIÓN -- ya no hace
+falta ninguna calibración de marco (la que tenía la primera versión de este
+demo, ver historial de la rama).
+
+Postura inicial ("descripción"): CR5 en posición base (los seis joints a
+cero -- la home real de `PoeKinematicsAdapter`, no una postura arbitraria de
+un `.ttt`). Para probar con un joint distinto (p. ej. "90° en joint2"),
+basta con cambiar `_INITIAL_CONFIGURATION` más abajo.
+
+Goal y obstáculo, medidos con `PoeKinematicsAdapter.forward_kinematics`
+desde esa postura base real (ya no hacen falta desde un valor "medido a
+mano" contra una escena externa):
+  - Home: (0, -0.246, 1.047).
+  - Goal: mismo eje de orientación, movido a (0.25, 0.25, 0.50) --
+    convergió numéricamente (distancia ~0.78 m, comprobado antes de
+    fijarlo aquí).
   - Obstáculo: esfera de radio 0.08 m centrada en el punto medio real de
-    ese segmento, (0.2785, -0.023, 0.404).
-
-SEGUNDO hallazgo real de esta rama, más de fondo: el marco interno de
-`PoeKinematicsAdapter` tampoco coincide con el marco MUNDO de CoppeliaSim
-(mismo "hallazgo sin arreglar" que ya señala `two_sessions_demo.py`) -- si se
-dibujan `_GOAL`/`_OBSTACLE` tal cual con `mark_goal`/`mark_obstacle`
-(`setObjectPosition` en mundo), el robot llega de verdad al objetivo pero los
-marcadores aparecen en otro sitio, dando la falsa impresión de que "no
-llega". Medido con `Link6_visual`: es una transformación RÍGIDA CONSTANTE
-(no depende de la configuración -- verificado prediciendo la matriz de
-`Link6_visual` en una segunda postura a partir de la primera, error
-~1e-16 m), así que se puede calibrar una vez por sesión con una sola
-correspondencia (postura actual real vs. `forward_kinematics` de esa misma
-postura) y aplicarse a cualquier Pose interna antes de dibujarla. El
-planificador y la cinemática siguen operando enteramente en el marco
-interno -- la calibración es puramente para que los marcadores no mientan.
+    ese segmento, (0.125, 0.002, 0.773).
 
 Uso: `ros2 run commander avoid_obstacle_demo` (lanza CoppeliaSim solo si
-hace falta, ver `coppeliasim_launcher`). Revisa en la ventana de CoppeliaSim
-que la fila de dummies azules (waypoints, marco mundo real) rodee la esfera
-naranja (obstáculo, ahora también en marco mundo) y termine en el dummy rojo.
+hace falta). Revisa en la ventana de CoppeliaSim que la fila de dummies
+azules (waypoints) rodee la esfera naranja (obstáculo) y termine en el
+dummy rojo (objetivo).
 """
 
 from __future__ import annotations
 
-import os
 import time
-
-import numpy as np
 
 from controller_node.adapters.obstacle_avoiding_planning_adapter import (
     ObstacleAvoidingPlanningAdapter,
 )
-from controller_node.adapters.poe_adapter import (
-    PoeKinematicsAdapter,
-    _matrix_to_pose,
-    _pose_to_matrix,
-)
-from robot_node.adapters.coppeliasim_adapter import CoppeliaSimRobotAdapter
-from shared_kernel import JointConfiguration, Point, Pose, Scene, SphereObstacle
+from controller_node.adapters.poe_adapter import PoeKinematicsAdapter
+from shared_kernel import JointConfiguration, JointPosition, Point, Pose, Scene, SphereObstacle
 
-from .coppeliasim_launcher import ensure_coppeliasim_scene
+from .coppeliasim_scene_builder import build_cr5_scene, ensure_coppeliasim_running
 
-_SCENE_PATH = os.path.expanduser("~/RoboticInvest/CoppeliaSim/scenes/cr5_base.ttt")
 _JOINT_NAMES = ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6"]
-_TIP_NAME = "Link6_visual"
 _ZMQ_PORT = 23000
 
-# Marco interno de PoeKinematicsAdapter (ver docstring del módulo) -- NO son
-# coordenadas de mundo de CoppeliaSim, se transforman con _calibrate() abajo.
+# "Descripción" de la postura inicial -- posición base (todo a cero). Para
+# probar "90 grados en joint2", por ejemplo:
+#   JointConfiguration.create(
+#       [JointPosition("joint1", 0.0), JointPosition("joint2", math.pi / 2), ...]
+#   ).value
+_INITIAL_CONFIGURATION = JointConfiguration.create(
+    [JointPosition(name, 0.0) for name in _JOINT_NAMES]
+).value
+
 _GOAL = Pose(
-    x=0.20, y=0.20, z=0.35,
-    qx=0.70711, qy=0.0, qz=0.0, qw=0.70711,
+    x=0.25, y=0.25, z=0.50,
+    qx=0.0, qy=-0.70711, qz=0.70711, qw=0.0,
 )
-_OBSTACLE = SphereObstacle(center=Point(0.2785, -0.023, 0.404), radius=0.08)
+_OBSTACLE = SphereObstacle(center=Point(0.125, 0.002, 0.773), radius=0.08)
 _CLEARANCE = 0.05
 _WAYPOINT_PAUSE_SECONDS = 0.3
 
 
-def _calibrate(
-    robot: CoppeliaSimRobotAdapter,
-    kinematics: PoeKinematicsAdapter,
-    current_configuration: JointConfiguration,
-) -> np.ndarray:
-    """Transformación rígida mundo<-interno: `world = T @ interno` (ver
-    hallazgo en el docstring del módulo). Se calibra con UNA
-    correspondencia -- la postura actual real, leída dos veces: por
-    `forward_kinematics` (marco interno) y por `Link6_visual` (marco
-    mundo) -- porque `T` es constante, no depende de la configuración."""
-    raw = robot.get_tip_world_matrix()
-    if raw is None:
-        raise RuntimeError(
-            "_calibrate: robot sin tip_name -- no hay forma de leer la "
-            "pose real del tip en mundo (ver CoppeliaSimRobotAdapter.__init__)."
-        )
-    world = np.eye(4)
-    world[0, :] = raw[0:4]
-    world[1, :] = raw[4:8]
-    world[2, :] = raw[8:12]
-    internal = _pose_to_matrix(kinematics.forward_kinematics(current_configuration))
-    return world @ np.linalg.inv(internal)
-
-
-def _pose_to_world(transform: np.ndarray, pose: Pose) -> Pose:
-    return _matrix_to_pose(transform @ _pose_to_matrix(pose))
-
-
-def _obstacle_to_world(transform: np.ndarray, obstacle: SphereObstacle) -> SphereObstacle:
-    # El radio es invariante bajo una transformación rígida (sin escalado) --
-    # solo hace falta transformar el centro.
-    center_pose = Pose(x=obstacle.center.x, y=obstacle.center.y, z=obstacle.center.z)
-    world_center = _pose_to_world(transform, center_pose)
-    return SphereObstacle(
-        center=Point(world_center.x, world_center.y, world_center.z),
-        radius=obstacle.radius,
-    )
-
-
 def main() -> None:
-    ensure_coppeliasim_scene(
-        port=_ZMQ_PORT,
-        settings_suffix="_avoid_obstacle_demo",
-        scene_path=_SCENE_PATH,
-    )
-    robot = CoppeliaSimRobotAdapter(
-        joint_names=_JOINT_NAMES, tip_name=_TIP_NAME, zmq_port=_ZMQ_PORT
-    )
-    kinematics = PoeKinematicsAdapter()
-    current_configuration = robot.get_current_configuration()
+    ensure_coppeliasim_running(port=_ZMQ_PORT, settings_suffix="_avoid_obstacle_demo")
 
-    transform = _calibrate(robot, kinematics, current_configuration)
-    robot.mark_goal(_pose_to_world(transform, _GOAL))
-    robot.mark_obstacle(_obstacle_to_world(transform, _OBSTACLE))
-
-    # El planificador sigue operando enteramente en el marco interno -- la
-    # calibración de arriba es solo para que los marcadores no mientan.
-    planner = ObstacleAvoidingPlanningAdapter(kinematics, clearance=_CLEARANCE)
     scene = Scene.empty().with_obstacle(_OBSTACLE)
+    robot = build_cr5_scene(
+        port=_ZMQ_PORT,
+        initial_configuration=_INITIAL_CONFIGURATION,
+        scene=scene,
+    )
+    robot.mark_goal(_GOAL)
 
-    trajectory = planner.compute_trajectory(_GOAL, current_configuration, scene)
+    kinematics = PoeKinematicsAdapter()
+    planner = ObstacleAvoidingPlanningAdapter(kinematics, clearance=_CLEARANCE)
+
+    trajectory = planner.compute_trajectory(_GOAL, _INITIAL_CONFIGURATION, scene)
     print(
         f"Trayectoria calculada: {len(trajectory.waypoints)} waypoints "
         f"(evitando {len(scene.obstacles)} obstáculo(s))"
