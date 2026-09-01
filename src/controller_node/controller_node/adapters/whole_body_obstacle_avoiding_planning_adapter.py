@@ -76,6 +76,10 @@ def _body_segments(link_poses: List[Pose]) -> List[Tuple[np.ndarray, np.ndarray]
     """Las 'aristas' del robot en una postura dada: `base_link` (siempre el
     origen en el marco de `KinematicsPort`) -> primera articulación -> ...
     -> tip (última pose de `link_poses`)."""
+    # Antepone el origen (base_link) a la lista de posiciones de
+    # articulación, y luego empareja cada punto con el siguiente --
+    # [base, j1, j2, j3] pasa a [(base,j1), (j1,j2), (j2,j3)], un segmento
+    # por eslabón real del robot.
     points = [np.zeros(3)] + [np.array([p.x, p.y, p.z]) for p in link_poses]
     return list(zip(points[:-1], points[1:]))
 
@@ -99,6 +103,12 @@ class WholeBodyObstacleAvoidingPlanningAdapter:
         current_configuration: JointConfiguration,
         scene: Scene,
     ) -> Trajectory:
+        # 1. Trayectoria directa (sin desvío), igual que haría el
+        # KinematicsPort solo. Se acepta tal cual si pasa las DOS
+        # comprobaciones: ningún eslabón invade ningún obstáculo en ningún
+        # waypoint, Y ningún ángulo se ha ido de vuelta (ver
+        # _within_a_full_turn) -- este es el caso fácil, la mayoría de las
+        # veces no hace falta nada más.
         trajectory = self._kinematics.compute_trajectory(goal, current_configuration)
         if (
             self._worst_body_hit(trajectory, scene.obstacles) is None
@@ -106,15 +116,26 @@ class WholeBodyObstacleAvoidingPlanningAdapter:
         ):
             return trajectory
 
+        # 2. Hay colisión de cuerpo: se necesita un punto de paso para el
+        # TIP (el único lever de control real -- no se puede pedir "mueve
+        # el codo aquí" directamente). start/goal_xyz son los extremos del
+        # segmento del tip que usará detour_point para decidir la dirección
+        # de escape, igual que en ObstacleAvoidingPlanningAdapter.
         start_pose = self._kinematics.link_poses(current_configuration)[-1]
         start = np.array([start_pose.x, start_pose.y, start_pose.z])
         goal_xyz = np.array([goal.x, goal.y, goal.z])
 
+        # 3. Bucle de reintento: cada vuelta busca el PEOR obstáculo que
+        # invade la trayectoria ACTUAL (no siempre el mismo -- si un
+        # intento resuelve un problema puede descubrir otro), calcula un
+        # punto de paso que lo rodee con el margen de empuje actual
+        # (push_margin, que crece cada vuelta si no basta), y comprueba si
+        # eso deja el cuerpo entero libre. Si no, repite con más margen.
         push_margin = self._clearance
         for _ in range(self._max_detour_attempts):
             hit = self._worst_body_hit(trajectory, scene.obstacles)
             if hit is None:
-                break
+                break  # ya no hay ningún obstáculo pendiente de resolver
             obstacle, center = hit
             via_xyz = detour_point(start, goal_xyz, obstacle, center, push_margin)
             via_pose = Pose(
@@ -150,10 +171,13 @@ class WholeBodyObstacleAvoidingPlanningAdapter:
                 # como candidato, no se acepta como si fuera correcto.
                 push_margin *= self._detour_growth_factor
                 continue
+            # Candidato válido (convergió e IK, ángulos en rango): pasa a
+            # ser la trayectoria "actual" para la siguiente comprobación,
+            # se acepte ya o haga falta otra vuelta del bucle.
             trajectory = candidate
             if self._worst_body_hit(trajectory, scene.obstacles) is None:
-                return trajectory
-            push_margin *= self._detour_growth_factor
+                return trajectory  # cuerpo entero libre -- éxito
+            push_margin *= self._detour_growth_factor  # no bastó, probar más lejos
 
         # Se agotaron los intentos: el mejor candidato encontrado, aunque
         # no haya garantía de que el cuerpo entero quede libre -- ver
@@ -168,13 +192,21 @@ class WholeBodyObstacleAvoidingPlanningAdapter:
         los segmentos del cuerpo (`_body_segments`), no solo el del tip."""
         worst: Optional[Tuple[SphereObstacle, np.ndarray]] = None
         worst_penetration = 0.0
+        # Doble bucle: por cada waypoint de la trayectoria, por cada
+        # segmento del cuerpo EN ESE waypoint (la postura completa cambia
+        # de un waypoint a otro, así que hay que recalcular link_poses en
+        # cada uno, no solo comprobar el waypoint final).
         for waypoint in trajectory.waypoints:
             link_poses = self._kinematics.link_poses(waypoint)
             for start, end in _body_segments(link_poses):
                 hit = worst_intersection(start, end, obstacles, self._clearance)
                 if hit is None:
-                    continue
+                    continue  # este segmento, en este waypoint, no choca con nada
                 obstacle, center = hit
+                # worst_intersection ya da el obstáculo que peor invade ESTE
+                # segmento -- aquí se compara además contra el peor visto en
+                # CUALQUIER OTRO segmento/waypoint anterior, para quedarnos
+                # con el peor de toda la trayectoria.
                 closest = closest_point_on_segment(start, end, center)
                 distance = float(np.linalg.norm(closest - center))
                 penetration = obstacle.radius + self._clearance - distance
