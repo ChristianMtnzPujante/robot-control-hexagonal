@@ -109,7 +109,12 @@ def run(
     otro `PlanningPort` vía `planner_factory`) sin duplicar la
     orquestación -- ver `avoid_obstacle_demo_joint2_90.py` (postura
     distinta) y `avoid_obstacle_demo_whole_body.py` (otro planificador)."""
-    ensure_coppeliasim_running(port=port, settings_suffix="_avoid_obstacle_demo")
+    # Sufijo por puerto (no fijo): dos instancias simultáneas en puertos
+    # distintos (ver avoid_obstacle_demo_compare.py) necesitan carpetas de
+    # settings distintas, o compiten por el mismo usrset.txt y ninguna
+    # termina de arrancar -- mismo hallazgo que ya documenta
+    # coppeliasim_launcher.py para two_sessions_demo.py.
+    ensure_coppeliasim_running(port=port, settings_suffix=f"_avoid_obstacle_demo_{port}")
 
     scene = Scene.empty().with_obstacle(obstacle)
     robot = build_cr5_scene(
