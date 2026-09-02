@@ -26,6 +26,7 @@ setup(
             'avoid_obstacle_demo_joint2_90 = commander.avoid_obstacle_demo_joint2_90:main',
             'avoid_obstacle_demo_whole_body = commander.avoid_obstacle_demo_whole_body:main',
             'avoid_obstacle_demo_compare = commander.avoid_obstacle_demo_compare:main',
+            'perception_replan_demo = commander.perception_replan_demo:main',
         ],
     },
 )
