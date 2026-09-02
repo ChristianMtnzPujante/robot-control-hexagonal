@@ -34,6 +34,16 @@ cuanto más se implemente sobre el 0/3/4 sin tenerlo en cuenta, más sitios
 habrá que revisar luego; conviene tenerlo anotado desde ya aunque no se
 aborde todavía.
 
+**Bloques 10–12 (añadidos el 02/09, tras contrastar este ROADMAP contra los
+objetivos formales de la beca):** cubren tres huecos reales que ningún
+bloque anterior tocaba -- dinámica del brazo (10), control de bajo nivel
+(11) y colaboración humano-robot (12). No bloquean nada de lo anterior ni
+dependen de ello salvo donde se indica explícitamente en cada bloque; se
+numeran al final para no romper las referencias cruzadas ya existentes a
+"Bloque N" en código/docs, no porque sean menos prioritarios -- de hecho,
+el 10 y el 12 cubren objetivos formales de la beca hoy sin ningún bloque
+propio.
+
 ---
 
 ## Bloque 0 — Cerrar el esqueleto clásico (fundación)
@@ -190,7 +200,14 @@ aborde todavía.
       ningún LLM en el bucle — esto es lo que hace segura la reactividad
       rápida.
 - [ ] RRT como alternativa/baseline para comparar con CHOMP en la misma
-      escena.
+      escena. Nota de alineación (02/09, contraste contra objetivos de la
+      beca): los dos planificadores ya implementados y verificados esta
+      semana (`ObstacleAvoidingPlanningAdapter`,
+      `WholeBodyObstacleAvoidingPlanningAdapter`) son heurísticas
+      geométricas deterministas, no técnicas de IA -- CHOMP/RRT de este
+      bloque son, con diferencia, el primer hito real y concreto hacia el
+      objetivo de formación en IA de la beca (búsqueda/optimización, no
+      solo lectura). Priorizar en cuanto se cierre el Bloque 0.
 - [ ] Métricas mínimas (tiempo de replanificación, tasa de éxito) para
       poder comparar planificadores objetivamente en el Bloque 5.
 
@@ -328,3 +345,82 @@ de orden sugerido arriba) pero conviene resolverlo antes de que Bloque 3+
       de tip si la escena no lo declara explícitamente) tiene que
       resolverse por convención documentada o por manifest, no caso a
       caso como ahora.
+
+## Bloque 10 — Dinámica de la cadena cinemática
+
+Añadido el 02/09 tras contrastar este ROADMAP contra los objetivos
+formales de la beca: "simulación cinemática **y dinámica** de cadenas
+robóticas lineales" tiene una mitad, la dinámica, sin ningún bloque
+propio hasta ahora — y el trabajo de esta semana, sin querer, ha ido en
+dirección contraria (ver la tercera tarea).
+
+- [ ] Decidir formulación: Newton-Euler recursivo sobre el mismo
+      formalismo de twists que ya sustenta `poe_adapter.py` (Lynch & Park,
+      *Modern Robotics*, cap. 8 — misma fuente que el PoE ya implementado,
+      no hace falta una base matemática nueva) frente a una Lagrangiana
+      clásica. La primera reutiliza directamente `RobotDescription`/twists
+      sin re-derivar nada geométrico.
+- [ ] Parámetros dinámicos que faltan por completo hoy: masa e inercia por
+      eslabón. Comprobar si el URDF real del CR5
+      (`~/ros2_ws/src/TCP-IP-ROS-6AXis/dobot_description/urdf/cr5_robot.urdf`)
+      trae ya `<inertial>` utilizables, o hay que estimarlos/asumirlos
+      para el primer experimento.
+- [ ] **Resolver la tensión real con el hallazgo del 01/09:** hoy se
+      fuerza `jointmode_kinematic` + `modelproperty_not_dynamic` al
+      importar el robot en CoppeliaSim (ver
+      `whole_body_obstacle_avoiding_planning_adapter.py`), precisamente
+      para que la física NO interfiera con el control por posición. Un
+      experimento de dinámica de verdad necesita lo contrario. Decidir si
+      conviven como dos modos explícitos (control cinemático puro vs.
+      control con dinámica activa, elegido por sesión) o si la dinámica se
+      calcula aparte, en software, sin tocar el modo del simulador.
+- [ ] Primer experimento concreto: control por par calculado (*computed
+      torque control*) sobre el CR5 simulado, comparado contra el control
+      puramente cinemático que ya existe — con la física real de
+      CoppeliaSim como referencia de validación, mismo patrón que
+      `two_sessions_demo.py` ya usa para comparar PoE contra simIK.
+
+## Bloque 11 — Controladores de bajo nivel para servos (C/C++)
+
+Añadido el 02/09, mismo contraste contra la beca. Hueco casi total hoy:
+todo el repo es Python/ROS2 a nivel de aplicación.
+
+- [ ] **Pregunta abierta real, sin resolver, antes de planificar nada
+      más aquí:** ¿este objetivo de la beca se cubre en
+      `robot-control-hexagonal` o en otra pieza de la formación? El CR5
+      real ya trae su propio controlador de bajo nivel de fábrica —
+      `Cr5RealRobotAdapter` (Bloque 8) hablaría con él por TCP/IP, no lo
+      sustituiría ni lo reimplementaría. Si el objetivo de la beca es
+      programar servo-control desde cero, este repo (arquitectura de alto
+      nivel sobre un robot que ya trae su propio controlador) probablemente
+      no es el sitio natural — confirmarlo es el primer paso, no una
+      formalidad.
+- [ ] Si aplica aquí: identificar una plataforma de práctica desacoplada
+      del CR5 (una tarjeta de desarrollo + un servo/motor DC de pruebas)
+      para no depender de tener acceso al brazo físico para esta parte.
+- [ ] Formación de base antes de nada específico de robótica: bucle de
+      control PID en C/C++ sobre microcontrolador.
+
+## Bloque 12 — Colaboración humano-robot
+
+Añadido el 02/09. El objetivo de beca de "generación de trayectorias con
+realimentación visual" menciona explícitamente un "sistema
+humano-manipulador robótico" — hoy no hay ni una mención a esto en
+ningún bloque del ROADMAP, ni siquiera como pregunta abierta.
+
+- [ ] Investigación de alcance, sin decisión tomada todavía: ¿qué
+      significa "colaboración humano-robot" en este proyecto en concreto?
+      ¿Detección de presencia/intención humana en el espacio de trabajo?
+      ¿Parada de seguridad reactiva? ¿Planificación de tareas compartidas
+      donde humano y robot se turnan o cooperan en la misma tarea?
+- [ ] Requisito de seguridad mínimo, antes de cualquier otra cosa: si un
+      humano entra en el espacio de trabajo, el planificador reactivo
+      (Bloque 4) debe tratarlo como un obstáculo. Comprobar si esto sale
+      "gratis" en cuanto exista percepción real (Bloque 3) tratando a la
+      persona como un `SphereObstacle` más, o si necesita lógica propia
+      (urgencia/prioridad distinta a un obstáculo estático — p. ej. parada
+      inmediata en vez de replanificación con margen).
+- [ ] Conectar con el Bloque 7 (Régimen 2 lento): ¿una intervención
+      humana debe escalar al supervisor LLM igual que un fallo del
+      planificador, o es una tercera vía de escalado con su propia
+      política?
