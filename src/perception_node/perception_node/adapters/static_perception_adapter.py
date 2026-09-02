@@ -6,8 +6,10 @@ tengan algo real que consumir mientras no existe percepción de verdad
 después). Mismo papel que `NaiveTestKinematicsAdapter` tuvo para
 `KinematicsPort`: no resuelve el problema, pero deja el puerto en pie.
 
-Sin nodo ROS2 todavía (no hay topics que publicar/suscribir hasta que haya
-un productor real de `Scene`) -- por eso este paquete no depende de rclpy.
+Este adaptador en sí NO depende de rclpy (como el resto de adaptadores de
+`PerceptionPort`, testeables sin ROS2) -- el nodo ROS2 real que publica su
+`Scene` en `/perception/scene` vive en `perception_node/node.py`, aparte,
+y es quien sí depende de `rclpy`/`ros2_kit`.
 """
 
 from __future__ import annotations

@@ -27,6 +27,7 @@ setup(
             'avoid_obstacle_demo_whole_body = commander.avoid_obstacle_demo_whole_body:main',
             'avoid_obstacle_demo_compare = commander.avoid_obstacle_demo_compare:main',
             'perception_replan_demo = commander.perception_replan_demo:main',
+            'file_perception_goal_demo = commander.file_perception_goal_demo:main',
         ],
     },
 )

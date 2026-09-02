@@ -137,7 +137,7 @@ def build_cr5_scene(
     robot = CoppeliaSimRobotAdapter(
         joint_names=_CR5_JOINT_NAMES, tip_name=_CR5_TIP_NAME, zmq_port=port
     )
-    for obstacle in scene.obstacles:
+    for obstacle in scene.obstacles.values():
         robot.mark_obstacle(obstacle)
     return robot
 

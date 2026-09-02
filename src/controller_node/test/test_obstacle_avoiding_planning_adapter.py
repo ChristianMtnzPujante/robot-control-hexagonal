@@ -58,7 +58,7 @@ def test_far_obstacle_does_not_trigger_a_detour():
     planner = ObstacleAvoidingPlanningAdapter(kinematics, clearance=0.05)
     goal = Pose(x=1.0, y=0.0, z=0.0)
     scene = Scene.empty().with_obstacle(
-        SphereObstacle(center=Point(0.5, 5.0, 0.0), radius=0.1)
+        "lejano", SphereObstacle(center=Point(0.5, 5.0, 0.0), radius=0.1)
     )
 
     trajectory = planner.compute_trajectory(goal, _CONFIGURATION, scene)
@@ -72,7 +72,7 @@ def test_obstacle_on_the_path_inserts_a_via_point_clear_of_it():
     planner = ObstacleAvoidingPlanningAdapter(kinematics, clearance=0.05)
     goal = Pose(x=1.0, y=0.0, z=0.0, qx=0.1, qy=0.2, qz=0.3, qw=0.9)
     obstacle = SphereObstacle(center=Point(0.5, 0.0, 0.0), radius=0.1)
-    scene = Scene.empty().with_obstacle(obstacle)
+    scene = Scene.empty().with_obstacle("obstaculo", obstacle)
 
     trajectory = planner.compute_trajectory(goal, _CONFIGURATION, scene)
 
@@ -100,7 +100,7 @@ def test_obstacle_centered_exactly_on_the_segment_still_produces_a_clear_via_poi
     planner = ObstacleAvoidingPlanningAdapter(kinematics, clearance=0.05)
     goal = Pose(x=1.0, y=0.0, z=0.0)
     obstacle = SphereObstacle(center=Point(0.5, 0.0, 0.0), radius=0.1)
-    scene = Scene.empty().with_obstacle(obstacle)
+    scene = Scene.empty().with_obstacle("obstaculo", obstacle)
 
     trajectory = planner.compute_trajectory(goal, _CONFIGURATION, scene)
 
@@ -117,7 +117,7 @@ def test_only_the_worst_intersecting_obstacle_is_avoided():
     goal = Pose(x=1.0, y=0.0, z=0.0)
     mild = SphereObstacle(center=Point(0.3, 0.0, 0.0), radius=0.05)
     severe = SphereObstacle(center=Point(0.6, 0.0, 0.0), radius=0.2)
-    scene = Scene.empty().with_obstacle(mild).with_obstacle(severe)
+    scene = Scene.empty().with_obstacle("mild", mild).with_obstacle("severe", severe)
 
     trajectory = planner.compute_trajectory(goal, _CONFIGURATION, scene)
 

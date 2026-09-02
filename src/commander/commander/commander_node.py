@@ -2,6 +2,16 @@
 
 Nunca sabe que existen CoppeliaSim, PoE, gafro o el CR5 real — solo conoce
 namespaces de sesión y el lenguaje común Pose -> feedback.
+
+También puede escuchar percepción (`follow_perception`): se suscribe a
+`/perception/scene` (topic global, fuera de cualquier namespace de sesión
+-- ver docs/nodos_ros2.md §4) y, cuando la `Scene` recibida trae un
+objetivo bajo la clave "objetivo" (`Scene.objects`, ver
+`FilePerceptionAdapter`), lo reenvía como un `Pose` nuevo a la sesión
+indicada, vía el mismo `send_goal` de siempre. Esto NO viola el invariante
+de arriba: decodificar/reenviar una `Scene` es fusión de datos, no una
+decisión de planificación -- Commander sigue sin saber qué estrategia usa
+`controller_node` ni por qué.
 """
 
 from __future__ import annotations
@@ -12,12 +22,15 @@ from typing import Dict, List
 import rclpy
 from geometry_msgs.msg import Pose as PoseMsg
 from rclpy.node import Node
-from ros2_kit import GOAL_QOS, shutdown_node, to_pose_msg
+from ros2_kit import GOAL_QOS, SCENE_QOS, from_scene_msg, shutdown_node, to_pose_msg
 from std_msgs.msg import String
 
-from shared_kernel import Pose
+from shared_kernel import Point, Pose
 
 from .control_session import ControlSession
+
+_PERCEPTION_SCENE_TOPIC = "/perception/scene"
+_GOAL_OBJECT_KEY = "objetivo"
 
 
 class Commander(Node):
@@ -25,6 +38,11 @@ class Commander(Node):
         super().__init__("commander")
         self._sessions: Dict[str, ControlSession] = {}
         self._goal_publishers: Dict[str, object] = {}
+        # Último objetivo recibido de percepción POR SESIÓN -- para no
+        # remandar el mismo Pose en cada ciclo de publicación de
+        # perception_node (que republica su última Scene conocida
+        # periódicamente aunque nada haya cambiado).
+        self._last_perceived_goal: Dict[str, Point] = {}
 
     def create_session(
         self,
@@ -75,10 +93,46 @@ class Commander(Node):
     def send_goal(self, session_name: str, goal: Pose) -> None:
         self._goal_publishers[session_name].publish(to_pose_msg(goal))
 
+    def follow_perception(
+        self, session_name: str, topic: str = _PERCEPTION_SCENE_TOPIC
+    ) -> None:
+        """Suscribe a `topic` (una `Scene` en JSON, ver `to_scene_msg`) y
+        reenvía como `send_goal` cualquier objetivo NUEVO que aparezca bajo
+        `Scene.objects["objetivo"]` -- "nuevo" significa distinto del
+        último ya reenviado a esta sesión, para no republicar el mismo
+        Pose en cada ciclo del timer de `perception_node`.
+
+        La orientación del `Pose` reenviado es la identidad por defecto
+        (`Pose(x, y, z)`, ver `geometry_kernel.Pose`) -- `Scene.objects`
+        solo guarda posición (`Point`), sin orientación; quien necesite
+        orientar el efector de otra forma debe seguir mandando el goal a
+        mano con `send_goal`, esto es solo el camino de percepción."""
+        self.create_subscription(
+            String,
+            topic,
+            lambda msg, n=session_name: self._on_perceived_scene(n, msg),
+            SCENE_QOS,
+        )
+
+    def _on_perceived_scene(self, session_name: str, msg: String) -> None:
+        scene = from_scene_msg(msg)
+        target = scene.objects.get(_GOAL_OBJECT_KEY)
+        if target is None:
+            return
+        if self._last_perceived_goal.get(session_name) == target:
+            return
+        self._last_perceived_goal[session_name] = target
+        goal = Pose(x=target.x, y=target.y, z=target.z)
+        self.get_logger().info(
+            f'[{session_name}] nuevo objetivo desde percepción: {goal}'
+        )
+        self.send_goal(session_name, goal)
+
     def close_session(self, session_name: str) -> None:
         self._sessions[session_name].stop()
         del self._sessions[session_name]
         del self._goal_publishers[session_name]
+        self._last_perceived_goal.pop(session_name, None)
 
 
 def main(args=None):

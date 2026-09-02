@@ -98,7 +98,7 @@ def test_detects_a_body_collision_that_a_tip_only_check_would_miss():
     )
     goal = Pose(x=2.0, y=0.0, z=0.0)
     obstacle = SphereObstacle(center=Point(1.0, 1.0, 0.0), radius=0.1)
-    scene = Scene.empty().with_obstacle(obstacle)
+    scene = Scene.empty().with_obstacle("obstaculo", obstacle)
 
     # El chequeo del tip-only (segmento (0,0,0)->(2,0,0)) no detecta nada:
     # el obstaculo esta a distancia 1.0 de esa recta, muy por encima de
@@ -112,7 +112,7 @@ def test_detects_a_body_collision_that_a_tip_only_check_would_miss():
     # llamada a compute_trajectory con goals distintos del original).
     assert len(kinematics.received_goals) > 1
     # Y consiguió dejar el cuerpo entero libre en la trayectoria final.
-    assert planner._worst_body_hit(trajectory, scene.obstacles) is None
+    assert planner._worst_body_hit(trajectory, list(scene.obstacles.values())) is None
 
 
 def test_gives_up_gracefully_when_no_detour_can_clear_the_body():
@@ -127,7 +127,7 @@ def test_gives_up_gracefully_when_no_detour_can_clear_the_body():
     )
     goal = Pose(x=2.0, y=0.0, z=0.0)
     obstacle = SphereObstacle(center=Point(1.0, 0.0, 0.0), radius=50.0)
-    scene = Scene.empty().with_obstacle(obstacle)
+    scene = Scene.empty().with_obstacle("obstaculo", obstacle)
 
     trajectory = planner.compute_trajectory(goal, _CONFIGURATION, scene)
 

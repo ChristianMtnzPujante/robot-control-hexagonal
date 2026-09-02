@@ -97,7 +97,7 @@ def main() -> None:
                 f"\n>>> Pseudo-perceptor: obstáculo detectado tras el "
                 f"waypoint {index} <<<"
             )
-            perceptor.report_obstacle(_OBSTACLE)
+            perceptor.report_obstacle("obstaculo_detectado", _OBSTACLE)
             robot.mark_obstacle(_OBSTACLE)
 
             current_configuration = robot.get_current_configuration()

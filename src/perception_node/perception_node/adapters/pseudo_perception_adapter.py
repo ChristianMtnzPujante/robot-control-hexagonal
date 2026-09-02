@@ -37,9 +37,11 @@ class PseudoPerceptionAdapter:
         ),
         "reports": {
             "obstacles": (
-                "SphereObstacle -- centro (x,y,z) y radio, en el marco "
-                "cartesiano relativo a base_link (mismo que exige "
-                "KinematicsPort)."
+                "Nombre + SphereObstacle -- centro (x,y,z) y radio, en el "
+                "marco cartesiano relativo a base_link (mismo que exige "
+                "KinematicsPort). El nombre identifica al obstáculo entre "
+                "reportes sucesivos: reportarlo de nuevo con el mismo "
+                "nombre lo actualiza en vez de duplicarlo."
             ),
             "objects": (
                 "Point con nombre -- posición (x,y,z) de un objeto/objetivo "
@@ -58,12 +60,13 @@ class PseudoPerceptionAdapter:
     def get_scene(self) -> Scene:
         return self._scene
 
-    def report_obstacle(self, obstacle: SphereObstacle) -> None:
-        """"Detecta" un obstáculo nuevo: lo añade a la Scene acumulada
-        (Scene sigue siendo inmutable -- with_obstacle devuelve una Scene
-        nueva, esta clase es la única que muta SU PROPIA referencia a
-        "la Scene actual")."""
-        self._scene = self._scene.with_obstacle(obstacle)
+    def report_obstacle(self, name: str, obstacle: SphereObstacle) -> None:
+        """"Detecta" un obstáculo nuevo (o actualiza uno existente, si
+        `name` ya estaba reportado -- mismo criterio que `report_object`):
+        lo añade a la Scene acumulada (Scene sigue siendo inmutable --
+        with_obstacle devuelve una Scene nueva, esta clase es la única que
+        muta SU PROPIA referencia a "la Scene actual")."""
+        self._scene = self._scene.with_obstacle(name, obstacle)
 
     def report_object(self, name: str, position: Point) -> None:
         """"Detecta" un objeto/objetivo nuevo (o actualiza uno existente,
