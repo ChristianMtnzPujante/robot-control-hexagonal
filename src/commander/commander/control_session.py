@@ -17,6 +17,8 @@ from __future__ import annotations
 import subprocess
 from typing import List, Optional
 
+from urdf_kit import parse_urdf_file
+
 
 class ControlSession:
     def __init__(
@@ -36,20 +38,52 @@ class ControlSession:
         self.namespace = namespace
         self._robot_target = robot_target
         self._controller_strategy = controller_strategy
-        self._joint_names = joint_names
+        # Resuelto AQUÍ, en Python puro, antes de lanzar ningún proceso --
+        # no hay ningún parámetro ROS2 que esperar a que se resuelva (ver
+        # conversación de diseño: eso es justo lo que permite que
+        # robot_node/controller_node reciban "joint_names" ya como un
+        # literal resuelto por -p, sin tener que derivarlo ellos mismos ni
+        # corregir su propio parámetro después de declararlo).
+        self._joint_names = self._resolve_joint_names(
+            joint_names, urdf_path, base_link, tip_link
+        )
         self._waypoint_period_seconds = waypoint_period_seconds
         self._tip_name = tip_name
         self._scene_path = scene_path
         self._zmq_port = zmq_port
-        # Geometría real del robot (URDF), solo relevante para controller_node
-        # (cinemática) -- robot_node no la necesita. Vacío conserva el CR5
-        # hardcodeado por defecto en cada KinematicsPort (ver ROADMAP.md,
-        # Bloque 9).
+        # Geometría real del robot (URDF) -- controller_node la usa entera
+        # para su cinemática (ver KinematicsPort); robot_node no recibe
+        # urdf_path/base_link/tip_link, solo se beneficia indirectamente:
+        # ya se usó arriba para derivar self._joint_names. Vacío conserva
+        # el CR5 hardcodeado por defecto en cada KinematicsPort (ver
+        # ROADMAP.md, Bloque 9).
         self._urdf_path = urdf_path
         self._base_link = base_link
         self._tip_link = tip_link
         self._robot_process: Optional[subprocess.Popen] = None
         self._controller_process: Optional[subprocess.Popen] = None
+
+    def _resolve_joint_names(
+        self, literal_joint_names: List[str], urdf_path: str, base_link: str, tip_link: str
+    ) -> List[str]:
+        # Vacío -- conserva la lista literal recibida (comportamiento de
+        # siempre). Con urdf_path, los nombres (y el ORDEN) salen de
+        # RobotDescription.joints -- así un robot con más/menos
+        # articulaciones no obliga a tocar ningún YAML, solo a apuntar a su
+        # URDF al crear la sesión. Se resuelve aquí, no dentro de
+        # robot_node/controller_node, porque este es código Python normal
+        # que corre ANTES de lanzar esos procesos -- no hay ningún
+        # parámetro ROS2 (con su propio -p overrideable) del que depender
+        # primero, así que no hace falta declarar-y-corregir después.
+        if not urdf_path:
+            return literal_joint_names
+        if not base_link or not tip_link:
+            raise ValueError(
+                'urdf_path requiere también "base_link" y "tip_link" (la '
+                "cadena serie a extraer del URDF) -- ninguno puede estar vacío."
+            )
+        description = parse_urdf_file(urdf_path, base_link, tip_link)
+        return [joint.name for joint in description.joints]
 
     def start(self) -> None:
         joint_names_yaml = "[" + ",".join(self._joint_names) + "]"
