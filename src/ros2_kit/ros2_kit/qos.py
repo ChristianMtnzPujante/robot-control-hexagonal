@@ -30,3 +30,16 @@ STRATEGY_QOS = QoSProfile(
     reliability=ReliabilityPolicy.BEST_EFFORT,
     durability=DurabilityPolicy.VOLATILE,
 )
+
+# SCENE_QOS: mismo razonamiento que GOAL_QOS, mismo problema de arranque.
+# Un perceptor (perception_node) y quien lo escuche (Commander) son
+# procesos separados que no se coordinan para arrancar en orden -- sin
+# TRANSIENT_LOCAL, si Commander se suscribe después de que ya se haya
+# publicado la primera Scene, se queda sin saber nada hasta el siguiente
+# ciclo del timer del perceptor (o para siempre, si el perceptor solo
+# publica una vez). Retener la última Scene publicada elimina esa espera.
+SCENE_QOS = QoSProfile(
+    depth=1,
+    reliability=ReliabilityPolicy.RELIABLE,
+    durability=DurabilityPolicy.TRANSIENT_LOCAL,
+)

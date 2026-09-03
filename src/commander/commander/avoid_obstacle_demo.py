@@ -116,7 +116,7 @@ def run(
     # coppeliasim_launcher.py para two_sessions_demo.py.
     ensure_coppeliasim_running(port=port, settings_suffix=f"_avoid_obstacle_demo_{port}")
 
-    scene = Scene.empty().with_obstacle(obstacle)
+    scene = Scene.empty().with_obstacle("obstaculo", obstacle)
     robot = build_cr5_scene(
         port=port,
         initial_configuration=initial_configuration,

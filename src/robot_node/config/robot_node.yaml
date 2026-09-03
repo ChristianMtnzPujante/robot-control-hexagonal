@@ -1,0 +1,61 @@
+# Config declarativa de robot_node -- ver ros2_kit/node_config.py.
+# Los valores por defecto de aquí son EXACTAMENTE los que antes estaban a
+# mano en robot_node/node.py (mismo comportamiento, ahora en un archivo
+# aparte). Los comentarios de cada parámetro también se han traído del
+# código, no se han inventado de nuevo.
+
+node:
+  name: robot_node
+
+parameters:
+  robot_target:
+    type: string
+    default: simulado
+  # Lista de nombres de articulación, EN ORDEN. Es un valor literal para
+  # robot_node -- de dónde sale (a mano, o derivado de un URDF) es
+  # decisión de quien lo lanza, no de este nodo (ver
+  # ControlSession._resolve_joint_names en commander/control_session.py).
+  joint_names:
+    type: string_array
+    default: [joint1, joint2, joint3, joint4, joint5, joint6]
+  state_publish_period_seconds:
+    type: double
+    default: 0.05
+    range: {min: 0.01, max: 5.0}
+  # Nombre del dummy/objeto "tip" en la escena de CoppeliaSim, solo para
+  # decoración visual (dejar un trail de waypoints). Vacío desactiva esa
+  # decoración. No afecta a RobotControllerPort.
+  tip_name:
+    type: string
+    default: ""
+  # Ruta a una escena .ttt de CoppeliaSim a cargar (y poner en play)
+  # automáticamente al arrancar. Vacío asume que ya hay una escena cargada
+  # y en play (comportamiento de siempre).
+  scene_path:
+    type: string
+    default: ""
+  # Puerto ZMQ del CoppeliaSim al que conectar -- permite tener varias
+  # instancias de CoppeliaSim corriendo a la vez, cada una con su propia
+  # ControlSession (ver commander/two_sessions_demo.py).
+  zmq_port:
+    type: int
+    default: 23000
+
+subscriptions:
+  - topic: joint_command
+    message_type: sensor_msgs/msg/JointState
+    qos: 10
+    callback: _on_joint_command
+  - topic: goal
+    message_type: geometry_msgs/msg/Pose
+    qos: 10
+    callback: _on_goal
+
+publishers:
+  - topic: joint_states
+    message_type: sensor_msgs/msg/JointState
+    qos: 10
+
+timers:
+  - period_parameter: state_publish_period_seconds
+    callback: _publish_state

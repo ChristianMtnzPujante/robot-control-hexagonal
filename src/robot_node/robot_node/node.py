@@ -9,36 +9,37 @@ from __future__ import annotations
 
 from geometry_msgs.msg import Pose as PoseMsg
 from rclpy.node import Node
-from ros2_kit import run_node, to_joint_configuration, to_joint_state_msg, to_pose
+from ros2_kit import (
+    apply_node_config,
+    load_node_config,
+    package_config_path,
+    run_node,
+    to_joint_configuration,
+    to_joint_state_msg,
+    to_pose,
+)
 from sensor_msgs.msg import JointState
 
 from .adapters.coppeliasim_adapter import CoppeliaSimRobotAdapter
 from .adapters.cr5_real_adapter import Cr5RealRobotAdapter
 
+_CONFIG_PATH = package_config_path("robot_node", "robot_node.yaml")
+
 
 class RobotNode(Node):
     def __init__(self) -> None:
-        super().__init__("robot_node")
+        # 1º: leer el YAML (no toca rclpy todavía) -- hace falta el nombre
+        # del propio archivo para poder construir el Node.
+        config = load_node_config(_CONFIG_PATH)
+        super().__init__(config.node_name)
+        # 2º: ya existe self -- ahora sí se puede declarar parámetros y
+        # crear publishers/subscriptions/timers (ver ros2_kit/node_config.py).
+        self._topic_publishers = apply_node_config(self, config)
 
-        self.declare_parameter("robot_target", "simulado")
-        self.declare_parameter(
-            "joint_names",
-            ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6"],
-        )
-        self.declare_parameter("state_publish_period_seconds", 0.05)
-        # Nombre del dummy/objeto "tip" en la escena de CoppeliaSim, solo
-        # para decoración visual (dejar un trail de waypoints). Vacío
-        # desactiva esa decoración. No afecta a RobotControllerPort.
-        self.declare_parameter("tip_name", "")
-        # Ruta a una escena .ttt de CoppeliaSim a cargar (y poner en play)
-        # automáticamente al arrancar. Vacío asume que ya hay una escena
-        # cargada y en play (comportamiento de siempre).
-        self.declare_parameter("scene_path", "")
-        # Puerto ZMQ del CoppeliaSim al que conectar -- permite tener varias
-        # instancias de CoppeliaSim corriendo a la vez, cada una con su
-        # propia ControlSession (ver commander/two_sessions_demo.py).
-        self.declare_parameter("zmq_port", 23000)
-
+        # "joint_names" llega YA resuelto (literal, o derivado de un URDF
+        # por quien lanzó este proceso -- ver ControlSession._resolve_joint_names
+        # en commander/control_session.py). robot_node no sabe ni necesita
+        # saber de dónde salió -- solo lo lee como cualquier otro parámetro.
         target = self.get_parameter("robot_target").value
         joint_names = list(self.get_parameter("joint_names").value)
         tip_name = self.get_parameter("tip_name").value or None
@@ -48,17 +49,6 @@ class RobotNode(Node):
         self._robot_controller = self._build_adapter(
             target, joint_names, tip_name, scene_path, zmq_port
         )
-
-        self._command_sub = self.create_subscription(
-            JointState, "joint_command", self._on_joint_command, 10
-        )
-        self._goal_sub = self.create_subscription(
-            PoseMsg, "goal", self._on_goal, 10
-        )
-        self._state_pub = self.create_publisher(JointState, "joint_states", 10)
-
-        period = float(self.get_parameter("state_publish_period_seconds").value)
-        self._timer = self.create_timer(period, self._publish_state)
 
         self.get_logger().info(
             f'robot_node listo, target="{target}", joints={joint_names}'
@@ -90,7 +80,7 @@ class RobotNode(Node):
 
     def _publish_state(self) -> None:
         configuration = self._robot_controller.get_current_configuration()
-        self._state_pub.publish(to_joint_state_msg(configuration))
+        self._topic_publishers["joint_states"].publish(to_joint_state_msg(configuration))
 
 
 def main(args=None):

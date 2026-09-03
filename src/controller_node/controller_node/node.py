@@ -21,8 +21,9 @@ from typing import Optional
 from geometry_msgs.msg import Pose as PoseMsg
 from rclpy.node import Node
 from ros2_kit import (
-    GOAL_QOS,
-    STRATEGY_QOS,
+    apply_node_config,
+    load_node_config,
+    package_config_path,
     run_node,
     to_joint_configuration,
     to_joint_state_msg,
@@ -41,25 +42,14 @@ from .adapters.naive_test_adapter import NaiveTestKinematicsAdapter
 from .adapters.poe_adapter import PoeKinematicsAdapter
 from .adapters.straight_line_adapter import StraightLineKinematicsAdapter
 
+_CONFIG_PATH = package_config_path("controller_node", "controller_node.yaml")
+
 
 class ControllerNode(Node):
     def __init__(self) -> None:
-        super().__init__("controller_node")
-
-        self.declare_parameter("strategy", "naive_test")
-        self.declare_parameter("waypoint_period_seconds", 0.5)
-        # Puerto ZMQ del CoppeliaSim al que conectar -- solo lo usa la
-        # estrategia "coppeliasim_ik". Permite varias instancias de
-        # CoppeliaSim corriendo a la vez (ver commander/two_sessions_demo.py).
-        self.declare_parameter("zmq_port", 23000)
-        # Ruta a un .urdf real (más base_link/tip_link, la cadena serie a
-        # extraer de él) para construir un RobotDescription genérico -- solo
-        # lo usan las estrategias "poe"/"ga". Vacío conserva el CR5
-        # hardcodeado que cada adaptador trae como default (ver
-        # ROADMAP.md, Bloque 9).
-        self.declare_parameter("urdf_path", "")
-        self.declare_parameter("base_link", "")
-        self.declare_parameter("tip_link", "")
+        config = load_node_config(_CONFIG_PATH)
+        super().__init__(config.node_name)
+        self._topic_publishers = apply_node_config(self, config)
 
         # zmq_port/urdf_path/base_link/tip_link no cambian a media sesión
         # (son del robot/escena, no de la estrategia) -- se guardan para que
@@ -84,26 +74,6 @@ class ControllerNode(Node):
         # ya no importa en qué orden arranquen commander/controller_node/
         # robot_node.
         self._pending_goal: Optional[Pose] = None
-
-        self._goal_sub = self.create_subscription(
-            PoseMsg, "goal", self._on_goal, GOAL_QOS
-        )
-        # Canal de control para que un supervisor (Bloque 7, incluso en otra
-        # máquina -- ROS2/DDS no distingue local de remoto) pueda cambiar la
-        # estrategia de cinemática en caliente, sin relanzar la sesión.
-        # best-effort a propósito (ver STRATEGY_QOS): perder un mensaje no es
-        # crítico, la sesión sigue con la estrategia anterior.
-        self._strategy_sub = self.create_subscription(
-            String, "set_strategy", self._on_set_strategy, STRATEGY_QOS
-        )
-        self._state_sub = self.create_subscription(
-            JointState, "joint_states", self._on_joint_states, 10
-        )
-        self._command_pub = self.create_publisher(JointState, "joint_command", 10)
-        self._feedback_pub = self.create_publisher(String, "feedback", 10)
-
-        period = float(self.get_parameter("waypoint_period_seconds").value)
-        self._timer = self.create_timer(period, self._advance_trajectory)
 
         self.get_logger().info(f'controller_node listo, strategy="{strategy}"')
 
@@ -149,7 +119,7 @@ class ControllerNode(Node):
 
     def _publish_feedback(self, status: str, **extra) -> None:
         payload = {"status": status, **extra}
-        self._feedback_pub.publish(String(data=json.dumps(payload)))
+        self._topic_publishers["feedback"].publish(String(data=json.dumps(payload)))
 
     def _on_set_strategy(self, msg: String) -> None:
         new_strategy = msg.data
@@ -194,7 +164,7 @@ class ControllerNode(Node):
         if not self._pending_waypoints:
             return
         waypoint = self._pending_waypoints.pop(0)
-        self._command_pub.publish(to_joint_state_msg(waypoint))
+        self._topic_publishers["joint_command"].publish(to_joint_state_msg(waypoint))
         self._publish_feedback(
             "waypoint_enviado", restantes=len(self._pending_waypoints)
         )

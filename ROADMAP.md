@@ -59,6 +59,16 @@ propio.
 - [ ] Decisión mínima sobre `Cr5RealRobotAdapter`/`ros1_kit` (bridge ROS1
       vs reimplementar TCP/IP) — no hace falta implementarlo ya, pero sí
       no dejarlo indefinido para siempre.
+- [ ] **Propuesta (03/09, sin diseñar todavía — ver Vikunja):** modularizar
+      la definición de canales ROS2 (topics, QoS, tipo de mensaje, quién
+      publica/suscribe) fuera del código Python, en JSON/YAML — hoy
+      `/perception/scene` está repetido como literal en dos paquetes,
+      `GOAL_QOS`/`SCENE_QOS`/`STRATEGY_QOS` son objetos Python en
+      `ros2_kit/qos.py`, y `docs/nodos_ros2.md` documenta a mano lo que
+      podría derivarse de un solo fichero de datos. Abierto: por-paquete o
+      global; sustituye o complementa `docs/nodos_ros2.md`; cómo no perder
+      la trazabilidad "por qué esta QoS" que hoy vive en comentarios junto
+      a cada valor.
 
 ## Bloque 1 — Investigación: álgebra geométrica conforme (CGA)
 
@@ -163,9 +173,74 @@ propio.
       descripción + forma del dato que reporta) para no tener que
       retrofit-earlo cuando llegue el Bloque 6. Ver la tarea "Diseñar
       superficie de la API de tools" de ese bloque.
+- [x] `Scene.obstacles` pasa de `List[SphereObstacle]` a `Dict[str,
+      SphereObstacle]`, y `Scene` gana `merge(other)` — decisión tomada
+      al diseñar `perception_node` (conversación 02/09): con obstáculos
+      identificados por nombre, un productor puede releer su fuente
+      entera en cada ciclo sin llevar diff (sobrescribe por clave, igual
+      que ya hacían `planes`/`objects`), y varias `Scene` parciales (una
+      por perceptor) se combinan clave a clave en una completa vía
+      `merge`. Actualizados todos los consumidores que trataban
+      `Scene.obstacles` como lista (`ObstacleAvoidingPlanningAdapter`,
+      `WholeBodyObstacleAvoidingPlanningAdapter`,
+      `coppeliasim_scene_builder`, demos y tests).
+- [x] Decisión de diseño: **`Commander` ensambla la `Scene` completa**
+      (vía `Scene.merge`) a partir de las piezas que le reporten uno o
+      más perceptores, y reenvía el resultado a cada `ControlSession` que
+      lo necesite — no `controller_node` escuchando directo a un único
+      productor, que era el boceto anterior de `docs/nodos_ros2.md` §4
+      (pendiente de actualizar ese documento). Encaja con el spike de
+      ciclo de vida ya resuelto (Vikunja #89): el/los perceptor(es) tienen
+      vida propia, fuera de cualquier `ControlSession`, y `Commander` es
+      quien ya cruza esa frontera (crea namespaces, publica `<ns>/goal`).
+      No viola su invariante de no saber de estrategias/backends: ensamblar
+      `Scene` es plumbing de datos (fusión de dicts), no una decisión de
+      planificación.
+- [x] Formato del topic `/perception/scene` decidido e implementado: JSON
+      en `std_msgs/String` (mismo patrón que `<ns>/feedback`, sin paquete
+      de interfaces nuevo) — `to_scene_msg`/`from_scene_msg` en
+      `ros2_kit/messages.py`, con `SCENE_QOS` nuevo (RELIABLE +
+      TRANSIENT_LOCAL, mismo motivo que `GOAL_QOS`). Tests de round-trip
+      en `ros2_kit/test/test_messages.py`.
+- [x] **`perception_node/node.py`**: primer nodo ROS2 real de percepción
+      — publica periódicamente (`scene_publish_period_seconds`) lo que su
+      adaptador (`perception_target`: `fichero`/`estatico`) reporte, en
+      `/perception/scene` (topic GLOBAL, sin namespace de sesión — vive
+      fuera de cualquier `ControlSession`, ver spike #89).
+- [x] **`Commander.follow_perception(session_name)`**: se suscribe a
+      `/perception/scene` y reenvía como `send_goal` cualquier objetivo
+      NUEVO en `Scene.objects["objetivo"]` (dedupe por `Point`, para no
+      remandar el mismo goal en cada ciclo del publisher). `controller_node`
+      no necesitó ningún cambio — `_on_goal` ya calculaba trayectoria
+      nueva desde la configuración actual y se queda "esperando" (sin
+      `_pending_waypoints`) entre goals. `FilePerceptionAdapter` gana la
+      sintaxis `objetivo x y z` (clave fija, distinta de un obstáculo por
+      número de campos) para poder disparar esto desde un fichero.
+      Verificado de punta a punta (fichero → adaptador → mensaje → Commander
+      → `Pose`). Demo: `commander/file_perception_goal_demo.py`
+      (`ros2 run commander file_perception_goal_demo`).
+- [ ] Pendiente (alcance original, no cubierto por lo anterior):
+      `controller_node` sigue sin recibir/cachear `Scene` para SU PROPIA
+      planificación (evitar obstáculos) — la tubería de arriba solo
+      reenvía el objetivo como `Pose`, no la `Scene` completa. Tampoco se
+      ha ejercitado `Scene.merge` con más de un perceptor escuchado a la
+      vez (`follow_perception` solo suscribe un topic).
+- [x] **`FilePerceptionAdapter`** (`perception_node/adapters/`): tercer
+      adaptador de `PerceptionPort`, banco de pruebas mínimo de
+      percepción sin depender de CoppeliaSim — relee un fichero de texto
+      ENTERO en cada `get_scene()` (una línea por obstáculo, `nombre x y
+      z radio`, o `objetivo x y z` para el objetivo; comentarios con `#`),
+      sin diff ni estado interno más allá de la ruta. Ejemplo en
+      `perception_node/example_obstacles.txt`. Tests en
+      `perception_node/test/test_file_perception_adapter.py`.
 - [ ] Adaptador de percepción para CoppeliaSim primero (ground truth
       simulado vía API de la escena) — evita depender de visión real desde
-      el minuto uno.
+      el minuto uno. Punto sin resolver, no cosmético: no hay precedente
+      en el repo de leer el RADIO de una esfera vía la API ZMQ
+      (`createPrimitiveShape` no lo expone como propiedad; hace falta
+      `getShapeBB`/bounding box) — verificar contra CoppeliaSim real antes
+      de darlo por hecho. `FilePerceptionAdapter` de arriba permite probar
+      el resto de la tubería sin esperar a resolver esto.
 - [ ] Capa de traducción "detección → primitiva CGA" (se apoya
       directamente en el Bloque 1).
 - [ ] Prototipo de grounding: ligar una frase tipo "el objeto sobre este

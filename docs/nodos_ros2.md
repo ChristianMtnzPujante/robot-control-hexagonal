@@ -5,6 +5,10 @@ qué responsabilidad tiene cada uno, qué sabe y qué NO debe saber nunca, y
 el contrato de comunicación (topics, tipos de mensaje, semántica) entre
 ellos. Es el complemento operativo de la sección "Lenguaje común" del
 `README.md` — aquí se detalla el contrato completo, no solo el resumen.
+Para la referencia práctica de parámetros por nodo (valores, rangos, cómo
+sobreescribirlos), ver `docs/configuracion_nodos.md` en su lugar — este
+documento es sobre el CONTRATO (topics, responsabilidades), no sobre cómo
+lanzar/configurar un nodo concreto.
 
 Como el resto del repo, distingue explícitamente **estado actual
 (implementado)** de **diseño objetivo (pendiente, ver `ROADMAP.md`)** — no
@@ -155,8 +159,31 @@ mismo patrón que `goal`:
 
 | Topic | Tipo | Publica | Suscribe | Semántica propuesta |
 |---|---|---|---|---|
-| `<ns>/scene` (o servicio) | mensaje a definir, deriva de `Scene` | productor de percepción (Bloque 3, pendiente) | `controller_node` | Estado actual de la escena — lo que consume `PlannerSelectionPort.select(scene)` internamente. |
+| `<ns>/scene` (o servicio) | mensaje a definir, deriva de `Scene` | `Commander` (ensamblado, ver abajo) | `controller_node` | Estado actual de la escena, ya ensamblada — lo que consume `PlannerSelectionPort.select(scene)` internamente. |
 | `<ns>/strategy_changed` | `std_msgs/String` (JSON) | `controller_node` | `Commander` (informativo) | Notificación de que `controller_node` cambió de estrategia por su cuenta — parte del `feedback`, no una orden. |
+
+**Revisado (conversación 02/09):** el productor de `<ns>/scene` NO es un
+único perceptor hablando directo con `controller_node` — es `Commander`.
+Puede haber varios perceptores (cada uno detectando piezas distintas:
+obstáculos, objetos...), cada uno con vida propia FUERA de cualquier
+`ControlSession` (spike de ciclo de vida ya resuelto, Vikunja #89).
+`Commander` los escucha, ensambla una `Scene` completa vía
+`Scene.merge` (`geometry_kernel`, ver ROADMAP.md Bloque 3), y reenvía el
+resultado a `<ns>/scene` de cada sesión que lo necesite — mismo rol que
+ya tiene al publicar `<ns>/goal` por sesión, extendido a un canal más.
+`controller_node` cachea la última `Scene` recibida, igual que ya hace
+con `joint_states`→`current_configuration`. Esto NO viola el invariante
+de §1.1 (`Commander` no debe saber de estrategias/backends): ensamblar
+`Scene` es fusión de datos (dicts por clave), no una decisión de
+planificación — sigue sin saber qué es `PlannerSelectionPort` ni qué
+estrategia hay activa.
+
+Sigue sin decidir el formato concreto del mensaje (JSON en
+`std_msgs/String`, como `feedback`, o un `.msg` propio) — sin eso no
+puede escribirse el `node.py` ROS2 real de `perception_node` ni el lado
+de `Commander` que ensambla. Mientras tanto, `FilePerceptionAdapter`
+(`perception_node/adapters/`) permite probar el `PerceptionPort` y
+`Scene.merge` sin ningún wiring ROS2 todavía.
 
 Explícitamente **no** se propone un topic `<ns>/set_strategy` publicado
 por `Commander` — eso reintroduciría la decisión de estrategia en la capa
@@ -191,6 +218,7 @@ vigilancia y la política de relanzamiento.
 | `KinematicsPort` | `controller_node` | `NaiveTestKinematicsAdapter`, `StraightLineKinematicsAdapter`, `CoppeliaSimIkKinematicsAdapter` | `PoeKinematicsAdapter`, `GaKinematicsAdapter`, `DhKinematicsAdapter` |
 | `PlanningPort` | `controller_node` (futuro) | — | CHOMP, RRT (Bloque 4) |
 | `PlannerSelectionPort` | `controller_node` (futuro, interno) | — | Bloque 5 |
+| `PerceptionPort` | `perception_node` (sin `node.py` ROS2 todavía — ver §4) | `StaticPerceptionAdapter`, `PseudoPerceptionAdapter`, `FilePerceptionAdapter` | `CoppeliaSimPerceptionAdapter` (ground truth, bloqueado en cómo leer el radio de una esfera vía la API ZMQ — ver ROADMAP.md Bloque 3) |
 
 Los puertos son `typing.Protocol`: un nodo no "hereda" nada, un adaptador
 nuevo solo necesita implementar los métodos exigidos. Esto es lo que

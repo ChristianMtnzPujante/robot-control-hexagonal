@@ -2,17 +2,25 @@
 shared_kernel. Es infraestructura, no dominio: por eso vive aquí y no en
 shared_kernel, que debe seguir sin saber que ROS2 existe.
 
-Es el único sitio donde robot_node y controller_node deberían tocar
-sensor_msgs/geometry_msgs directamente para estas conversiones -- antes
-estaba duplicado en los dos node.py.
+Es el único sitio donde robot_node/controller_node/perception_node
+deberían tocar sensor_msgs/geometry_msgs/std_msgs directamente para estas
+conversiones -- antes estaba duplicado en los node.py.
+
+`to_scene_msg`/`from_scene_msg` serializan `Scene` como JSON dentro de
+`std_msgs/String` (no un `.msg` propio) -- mismo patrón que `<ns>/feedback`
+en `controller_node`, decisión tomada al cablear `perception_node` (ver
+ROADMAP.md Bloque 3 y docs/nodos_ros2.md §4).
 """
 
 from __future__ import annotations
 
+import json
+
 from geometry_msgs.msg import Pose as PoseMsg
 from sensor_msgs.msg import JointState
+from std_msgs.msg import String
 
-from shared_kernel import JointConfiguration, JointPosition, Pose
+from shared_kernel import JointConfiguration, JointPosition, Plane, Point, Pose, Scene, SphereObstacle
 
 
 def to_joint_configuration(msg: JointState) -> JointConfiguration:
@@ -54,3 +62,61 @@ def to_pose_msg(pose: Pose) -> PoseMsg:
     msg.orientation.z = pose.qz
     msg.orientation.w = pose.qw
     return msg
+
+
+def _point_to_list(point: Point) -> list:
+    return [point.x, point.y, point.z]
+
+
+def _point_from_list(values: list) -> Point:
+    x, y, z = values
+    return Point(x, y, z)
+
+
+def to_scene_msg(scene: Scene) -> String:
+    """JSON en `std_msgs/String`, mismo patrón que ya usa `<ns>/feedback`
+    -- sin paquete de interfaces `.msg` propio (decisión tomada al cablear
+    `perception_node`, ver ROADMAP.md Bloque 3 y docs/nodos_ros2.md §4)."""
+    payload = {
+        "planes": {
+            name: {
+                "point": _point_to_list(plane.point),
+                "normal": _point_to_list(plane.normal),
+            }
+            for name, plane in scene.planes.items()
+        },
+        "obstacles": {
+            name: {
+                "center": _point_to_list(obstacle.center),
+                "radius": obstacle.radius,
+            }
+            for name, obstacle in scene.obstacles.items()
+        },
+        "objects": {
+            name: _point_to_list(point) for name, point in scene.objects.items()
+        },
+    }
+    return String(data=json.dumps(payload))
+
+
+def from_scene_msg(msg: String) -> Scene:
+    payload = json.loads(msg.data)
+    scene = Scene.empty()
+    for name, plane in payload.get("planes", {}).items():
+        scene = scene.with_plane(
+            name,
+            Plane(
+                point=_point_from_list(plane["point"]),
+                normal=_point_from_list(plane["normal"]),
+            ),
+        )
+    for name, obstacle in payload.get("obstacles", {}).items():
+        scene = scene.with_obstacle(
+            name,
+            SphereObstacle(
+                center=_point_from_list(obstacle["center"]), radius=obstacle["radius"]
+            ),
+        )
+    for name, point in payload.get("objects", {}).items():
+        scene = scene.with_object(name, _point_from_list(point))
+    return scene

@@ -31,6 +31,7 @@ frontera hexagonal, dirección opuesta.
 from __future__ import annotations
 
 import time
+from typing import List
 
 from coppeliasim_zmqremoteapi_client import RemoteAPIClient
 from shared_kernel import JointConfiguration, Scene
@@ -79,8 +80,36 @@ def build_cr5_scene(
     initial_configuration: JointConfiguration,
     scene: Scene,
 ) -> "CoppeliaSimRobotAdapter":
+    """Envoltorio de `build_scene` con los datos concretos del CR5 --
+    conservado por compatibilidad con los demos que ya lo llaman así
+    (`avoid_obstacle_demo.py`, etc.). Ver `build_scene` para el mecanismo
+    real, ya generalizado a cualquier URDF (ver ROADMAP.md, Bloque 9,
+    verificado en vivo importando también un Franka Panda de 7 GDL junto
+    al CR5)."""
+    return build_scene(
+        port=port,
+        urdf_path=_CR5_URDF_PATH,
+        urdf_package_prefix=_CR5_URDF_PACKAGE_PREFIX,
+        joint_names=_CR5_JOINT_NAMES,
+        tip_name=_CR5_TIP_NAME,
+        root_link_visual_alias="dummy_link_visual",
+        initial_configuration=initial_configuration,
+        scene=scene,
+    )
+
+
+def build_scene(
+    port: int,
+    urdf_path: str,
+    urdf_package_prefix: str,
+    joint_names: List[str],
+    tip_name: str,
+    root_link_visual_alias: str,
+    initial_configuration: JointConfiguration,
+    scene: Scene,
+) -> "CoppeliaSimRobotAdapter":
     """Construye desde cero, en la escena actualmente cargada en el puerto
-    `port`: el CR5 importado de su URDF real, en la postura
+    `port`: el robot importado de `urdf_path`, en la postura
     `initial_configuration`, más un marcador visual por cada
     `SphereObstacle` de `scene.obstacles`. Sin ningún marcador de goal: el
     goal es un objetivo de `KinematicsPort`/`PlanningPort`, no algo que
@@ -88,10 +117,16 @@ def build_cr5_scene(
     `.mark_goal(...)` sobre el `CoppeliaSimRobotAdapter` que devuelve esta
     función.
 
+    `root_link_visual_alias` es el alias que `simURDF.importFile` le da al
+    objeto de nivel superior del modelo importado -- por convención,
+    `"<root_link>_visual"` (ver `_clear_previous_build`), necesario para
+    poder reconstruir la escena sin acumular robots duplicados si se
+    reutiliza la misma instancia de CoppeliaSim.
+
     Deja la simulación en marcha al terminar y devuelve un
-    `CoppeliaSimRobotAdapter` ya conectado a los `joint1..joint6`/
-    `Link6_visual` recién importados -- listo para usar como
-    `RobotControllerPort` sin volver a resolver handles."""
+    `CoppeliaSimRobotAdapter` ya conectado a `joint_names`/`tip_name`
+    recién importados -- listo para usar como `RobotControllerPort` sin
+    volver a resolver handles."""
     # Import perezoso: evita una dependencia circular con robot_node en el
     # nivel de módulo (commander ya depende de robot_node, ver package.xml,
     # así que esto es solo por orden de import, no una dependencia nueva).
@@ -104,10 +139,10 @@ def build_cr5_scene(
     sim.stopSimulation()
     while sim.getSimulationState() != sim.simulation_stopped:
         time.sleep(0.1)
-    _clear_previous_build(sim)
+    _clear_previous_build(sim, root_link_visual_alias)
 
     _, model_handles = simURDF.importFile(
-        _CR5_URDF_PATH, _IMPORT_OPTIONS, _CR5_URDF_PACKAGE_PREFIX
+        urdf_path, _IMPORT_OPTIONS, urdf_package_prefix
     )
     # simURDF.import deja el modelo en modo DINÁMICO (física real) --
     # descubierto en vivo, en dos capas: (1) los joints en
@@ -125,7 +160,7 @@ def build_cr5_scene(
         model_handles[0],
         sim.getModelProperty(model_handles[0]) | sim.modelproperty_not_dynamic,
     )
-    for name in _CR5_JOINT_NAMES:
+    for name in joint_names:
         handle = sim.getObject(f"/{name}")
         sim.setJointMode(handle, sim.jointmode_kinematic)
     for position in initial_configuration.positions:
@@ -135,22 +170,22 @@ def build_cr5_scene(
     sim.startSimulation()
 
     robot = CoppeliaSimRobotAdapter(
-        joint_names=_CR5_JOINT_NAMES, tip_name=_CR5_TIP_NAME, zmq_port=port
+        joint_names=joint_names, tip_name=tip_name, zmq_port=port
     )
-    for obstacle in scene.obstacles:
+    for obstacle in scene.obstacles.values():
         robot.mark_obstacle(obstacle)
     return robot
 
 
-def _clear_previous_build(sim) -> None:
-    """`build_cr5_scene` es idempotente: si ya se había construido una
-    escena en esta misma instancia de CoppeliaSim (reutilizada entre dos
-    ejecuciones del demo), borra el CR5 importado anteriormente (por
-    `sim.removeModel`, ya que `simURDF.importFile` lo marca como modelo --
-    borra todo el árbol de una vez) y los marcadores de obstáculo/objetivo/
-    trail de la ejecución anterior, antes de reimportar. Sin esto, cada
-    reutilización de la misma instancia acumularía un CR5 duplicado
-    (`joint1`, `joint1_2`, ...) con handles ambiguos.
+def _clear_previous_build(sim, root_link_visual_alias: str) -> None:
+    """Idempotente: si ya se había construido una escena en esta misma
+    instancia de CoppeliaSim (reutilizada entre dos ejecuciones del demo),
+    borra el robot importado anteriormente (por `sim.removeModel`, ya que
+    `simURDF.importFile` lo marca como modelo -- borra todo el árbol de una
+    vez) y los marcadores de obstáculo/objetivo/trail de la ejecución
+    anterior, antes de reimportar. Sin esto, cada reutilización de la misma
+    instancia acumularía un robot duplicado (`joint1`, `joint1_2`, ...) con
+    handles ambiguos.
 
     Solo mira objetos de primer nivel (sin padre): todo lo demás cuelga de
     alguno de esos como hijo y se borra con él."""
@@ -161,7 +196,7 @@ def _clear_previous_build(sim) -> None:
         if sim.getObjectParent(handle) == -1
     ]
     for handle, alias in top_level:
-        if alias == "dummy_link_visual":
+        if alias == root_link_visual_alias:
             sim.removeModel(handle)
         elif alias in ("objetivo", "obstaculo") or alias.startswith("waypoint_"):
             sim.removeObjects([handle])

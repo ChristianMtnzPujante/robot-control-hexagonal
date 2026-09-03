@@ -1,0 +1,23 @@
+# Ejemplo de fichero de obstáculos/objetivo para FilePerceptionAdapter
+# (perception_node/adapters/file_perception_adapter.py), leído en vivo por
+# el nodo ROS2 perception_node (perception_node/node.py).
+#
+# Formato, una línea por entrada, de dos formas posibles:
+#   nombre x y z radio     -- un obstáculo (Scene.obstacles)
+#   objetivo x y z         -- EL objetivo a alcanzar (Scene.objects["objetivo"])
+#
+# Coordenadas en metros, marco cartesiano relativo a base_link (el mismo
+# que exige KinematicsPort). Líneas vacías y las que empiezan por "#" se
+# ignoran. Repetir un nombre de obstáculo sobrescribe el anterior con ese
+# nombre -- no lo duplica; solo puede haber un "objetivo" activo a la vez
+# (clave fija, no un nombre libre).
+#
+# Prueba de reactividad (ver commander/file_perception_goal_demo.py): con
+# perception_node apuntando aquí, edita este fichero desde otra terminal
+# -- mueve "caja", añade/quita una línea -- y el siguiente ciclo de
+# publicación lo refleja, sin reiniciar nada. Para mover el brazo
+# simulado, descomenta (o añade) una línea "objetivo x y z":
+# objetivo 0.25 0.25 0.50
+caja 0.30 0.00 0.20 0.05
+pared 0.10 0.40 0.50 0.10
+soporte -0.20 0.15 0.35 0.08

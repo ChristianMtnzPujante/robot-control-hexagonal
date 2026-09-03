@@ -111,7 +111,7 @@ class WholeBodyObstacleAvoidingPlanningAdapter:
         # veces no hace falta nada más.
         trajectory = self._kinematics.compute_trajectory(goal, current_configuration)
         if (
-            self._worst_body_hit(trajectory, scene.obstacles) is None
+            self._worst_body_hit(trajectory, list(scene.obstacles.values())) is None
             and _within_a_full_turn(trajectory)
         ):
             return trajectory
@@ -133,7 +133,7 @@ class WholeBodyObstacleAvoidingPlanningAdapter:
         # eso deja el cuerpo entero libre. Si no, repite con más margen.
         push_margin = self._clearance
         for _ in range(self._max_detour_attempts):
-            hit = self._worst_body_hit(trajectory, scene.obstacles)
+            hit = self._worst_body_hit(trajectory, list(scene.obstacles.values()))
             if hit is None:
                 break  # ya no hay ningún obstáculo pendiente de resolver
             obstacle, center = hit
@@ -175,7 +175,7 @@ class WholeBodyObstacleAvoidingPlanningAdapter:
             # ser la trayectoria "actual" para la siguiente comprobación,
             # se acepte ya o haga falta otra vuelta del bucle.
             trajectory = candidate
-            if self._worst_body_hit(trajectory, scene.obstacles) is None:
+            if self._worst_body_hit(trajectory, list(scene.obstacles.values())) is None:
                 return trajectory  # cuerpo entero libre -- éxito
             push_margin *= self._detour_growth_factor  # no bastó, probar más lejos
 

@@ -10,15 +10,18 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        ('share/' + package_name + '/config', ['config/perception_node.yaml']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='chris',
     maintainer_email='chris@example.com',
-    description='Adaptadores de PerceptionPort (shared_kernel), sin ROS2 todavia',
+    description='Adaptadores de PerceptionPort (shared_kernel) y el node.py ROS2 que los publica',
     license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={
-        'console_scripts': [],
+        'console_scripts': [
+            'perception_node = perception_node.node:main',
+        ],
     },
 )

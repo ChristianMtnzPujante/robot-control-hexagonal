@@ -84,7 +84,9 @@ class ObstacleAvoidingPlanningAdapter:
         # ninguno (o ninguno lo bastante cerca), vía libre: IK directa al
         # goal, sin más -- este planificador se limita a ser una envoltura
         # transparente en el caso fácil.
-        hit = worst_intersection(start, goal_xyz, scene.obstacles, self._clearance)
+        hit = worst_intersection(
+            start, goal_xyz, list(scene.obstacles.values()), self._clearance
+        )
         if hit is None:
             return self._kinematics.compute_trajectory(goal, current_configuration)
 

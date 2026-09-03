@@ -6,7 +6,7 @@ from perception_node.adapters.static_perception_adapter import StaticPerceptionA
 def test_returns_exactly_the_scene_given_at_construction():
     scene = Scene.empty().with_plane(
         "mesa", Plane(point=Point(0.0, 0.0, 0.0), normal=Point(0.0, 0.0, 1.0))
-    ).with_obstacle(SphereObstacle(center=Point(0.3, 0.0, 0.2), radius=0.05))
+    ).with_obstacle("caja", SphereObstacle(center=Point(0.3, 0.0, 0.2), radius=0.05))
 
     adapter = StaticPerceptionAdapter(scene)
 

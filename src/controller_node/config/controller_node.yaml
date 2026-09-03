@@ -1,0 +1,64 @@
+# Config declarativa de controller_node -- ver ros2_kit/node_config.py.
+# Valores por defecto y comentarios traídos tal cual de controller_node/node.py.
+
+node:
+  name: controller_node
+
+parameters:
+  strategy:
+    type: string
+    default: naive_test
+  waypoint_period_seconds:
+    type: double
+    default: 0.5
+    range: {min: 0.05, max: 5.0}
+  # Puerto ZMQ del CoppeliaSim al que conectar -- solo lo usa la estrategia
+  # "coppeliasim_ik". Permite varias instancias de CoppeliaSim corriendo a
+  # la vez (ver commander/two_sessions_demo.py).
+  zmq_port:
+    type: int
+    default: 23000
+  # Ruta a un .urdf real (más base_link/tip_link, la cadena serie a extraer
+  # de él) para construir un RobotDescription genérico -- solo lo usan las
+  # estrategias "poe"/"ga". Vacío conserva el CR5 hardcodeado que cada
+  # adaptador trae como default (ver ROADMAP.md, Bloque 9).
+  urdf_path:
+    type: string
+    default: ""
+  base_link:
+    type: string
+    default: ""
+  tip_link:
+    type: string
+    default: ""
+
+subscriptions:
+  - topic: goal
+    message_type: geometry_msgs/msg/Pose
+    qos: GOAL_QOS
+    callback: _on_goal
+  # Canal de control para que un supervisor (Bloque 7, incluso en otra
+  # máquina -- ROS2/DDS no distingue local de remoto) pueda cambiar la
+  # estrategia de cinemática en caliente, sin relanzar la sesión.
+  # best-effort a propósito (ver STRATEGY_QOS): perder un mensaje no es
+  # crítico, la sesión sigue con la estrategia anterior.
+  - topic: set_strategy
+    message_type: std_msgs/msg/String
+    qos: STRATEGY_QOS
+    callback: _on_set_strategy
+  - topic: joint_states
+    message_type: sensor_msgs/msg/JointState
+    qos: 10
+    callback: _on_joint_states
+
+publishers:
+  - topic: joint_command
+    message_type: sensor_msgs/msg/JointState
+    qos: 10
+  - topic: feedback
+    message_type: std_msgs/msg/String
+    qos: 10
+
+timers:
+  - period_parameter: waypoint_period_seconds
+    callback: _advance_trajectory
