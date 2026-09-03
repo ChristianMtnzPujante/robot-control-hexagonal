@@ -82,6 +82,16 @@ No hace falta ningún mensaje personalizado — todo son tipos estándar de ROS2
 (`sensor_msgs`, `geometry_msgs`, `std_msgs`), así que no hay que compilar
 `.msg` propios.
 
+## Configurar los nodos
+
+Cada nodo (`robot_node`, `controller_node`, `perception_node`) declara sus
+parámetros y topics de forma declarativa en un YAML propio
+(`src/<paquete>/config/<paquete>.yaml`, ver `ros2_kit/node_config.py`) — no
+hay que leer `node.py` para saber qué parámetros acepta uno. Referencia
+completa, con tabla de parámetros/defaults/rangos por nodo y cómo
+sobreescribirlos (CLI, `ros2 param set`, o vía `Commander.create_session`):
+**`docs/configuracion_nodos.md`**.
+
 ## Compilar y probar
 
 ```bash

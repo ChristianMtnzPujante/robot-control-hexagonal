@@ -5,6 +5,10 @@ qué responsabilidad tiene cada uno, qué sabe y qué NO debe saber nunca, y
 el contrato de comunicación (topics, tipos de mensaje, semántica) entre
 ellos. Es el complemento operativo de la sección "Lenguaje común" del
 `README.md` — aquí se detalla el contrato completo, no solo el resumen.
+Para la referencia práctica de parámetros por nodo (valores, rangos, cómo
+sobreescribirlos), ver `docs/configuracion_nodos.md` en su lugar — este
+documento es sobre el CONTRATO (topics, responsabilidades), no sobre cómo
+lanzar/configurar un nodo concreto.
 
 Como el resto del repo, distingue explícitamente **estado actual
 (implementado)** de **diseño objetivo (pendiente, ver `ROADMAP.md`)** — no

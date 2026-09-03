@@ -13,33 +13,33 @@ sesión concreta (ver docs/nodos_ros2.md §4 y ROADMAP.md Bloque 3).
 from __future__ import annotations
 
 from rclpy.node import Node
-from ros2_kit import SCENE_QOS, run_node, to_scene_msg
+from ros2_kit import (
+    apply_node_config,
+    load_node_config,
+    package_config_path,
+    run_node,
+    to_scene_msg,
+)
 from shared_kernel import Scene
-from std_msgs.msg import String
 
 from .adapters.file_perception_adapter import FilePerceptionAdapter
 from .adapters.static_perception_adapter import StaticPerceptionAdapter
 
 _SCENE_TOPIC = "/perception/scene"
+_CONFIG_PATH = package_config_path("perception_node", "perception_node.yaml")
 
 
 class PerceptionNode(Node):
     def __init__(self) -> None:
-        super().__init__("perception_node")
-
-        self.declare_parameter("perception_target", "fichero")
-        self.declare_parameter("file_path", "")
-        self.declare_parameter("scene_publish_period_seconds", 0.5)
+        config = load_node_config(_CONFIG_PATH)
+        super().__init__(config.node_name)
+        self._topic_publishers = apply_node_config(self, config)
 
         target = self.get_parameter("perception_target").value
         file_path = self.get_parameter("file_path").value
         self._perception = self._build_adapter(target, file_path)
 
-        self._scene_pub = self.create_publisher(String, _SCENE_TOPIC, SCENE_QOS)
-
         period = float(self.get_parameter("scene_publish_period_seconds").value)
-        self._timer = self.create_timer(period, self._publish_scene)
-
         self.get_logger().info(
             f'perception_node listo, target="{target}", '
             f"publicando en {_SCENE_TOPIC} cada {period}s"
@@ -56,7 +56,7 @@ class PerceptionNode(Node):
 
     def _publish_scene(self) -> None:
         scene = self._perception.get_scene()
-        self._scene_pub.publish(to_scene_msg(scene))
+        self._topic_publishers[_SCENE_TOPIC].publish(to_scene_msg(scene))
 
 
 def main(args=None):

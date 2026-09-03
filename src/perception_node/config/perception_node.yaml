@@ -1,0 +1,29 @@
+# Config declarativa de perception_node -- ver ros2_kit/node_config.py.
+# Este nodo vive fuera del namespace de cualquier ControlSession (ver
+# docstring de perception_node/node.py y docs/nodos_ros2.md §4) -- por eso
+# su topic de publicación es una ruta absoluta ("/perception/scene"), no
+# relativa como en robot_node/controller_node.
+
+node:
+  name: perception_node
+
+parameters:
+  perception_target:
+    type: string
+    default: fichero
+  file_path:
+    type: string
+    default: ""
+  scene_publish_period_seconds:
+    type: double
+    default: 0.5
+    range: {min: 0.05, max: 10.0}
+
+publishers:
+  - topic: /perception/scene
+    message_type: std_msgs/msg/String
+    qos: SCENE_QOS
+
+timers:
+  - period_parameter: scene_publish_period_seconds
+    callback: _publish_scene

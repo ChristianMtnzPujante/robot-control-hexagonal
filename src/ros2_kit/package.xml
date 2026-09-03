@@ -12,6 +12,10 @@
   <depend>geometry_msgs</depend>
   <depend>std_msgs</depend>
   <depend>shared_kernel</depend>
+  <depend>rcl_interfaces</depend>
+  <depend>rosidl_runtime_py</depend>
+  <depend>ament_index_python</depend>
+  <depend>python3-yaml</depend>
 
   <test_depend>python3-pytest</test_depend>
 
