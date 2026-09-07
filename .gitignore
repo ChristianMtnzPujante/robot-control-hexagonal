@@ -4,3 +4,7 @@ log/
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# Estado local de la app Obsidian (pestañas abiertas, etc.) — no es contenido
+obsidian-vault/.obsidian/workspace.json
+obsidian-vault/.obsidian/workspace-mobile.json
