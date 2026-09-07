@@ -4,8 +4,9 @@ tags: [moc]
 
 # robot-control-hexagonal — vault
 
-Vault personal (fuera del repo, no versionado) para entender, explicar y dejar
-constancia del avance de `~/Desktop/robot-control-hexagonal`: arquitectura
+Vault personal (`obsidian-vault/` dentro de este mismo repo desde el 07/09,
+versionado junto al código) para entender, explicar y dejar constancia del
+avance de `~/Desktop/robot-control-hexagonal`: arquitectura
 hexagonal/DDD para controlar el brazo Dobot CR5 (CoppeliaSim y físico, ya
 verificado ambos) sobre ROS2 Humble, con el objetivo de fondo de soportar un backend
 "descripción en lenguaje natural → nodo robótico validado" (LLM + tools, no
@@ -33,6 +34,14 @@ vez que lo abres, empieza por [[Cómo usar este vault (Obsidian)]].
 
 - [[Estado del Roadmap]] — resumen por Bloque (0–12) del `ROADMAP.md` real
 - [[Decisiones de Diseño Clave]] — decisiones no triviales, con fecha y motivo
+- [[Diario]] — registro día a día de qué se hizo y en qué orden
+
+## Pruebas y guías prácticas
+
+- [[CR5 vs Panda (Generalización)]] — puesta a prueba con un robot de 7 GDL
+- [[Evitación de Colisiones]] — los dos planificadores de obstáculos, en vivo
+- [[Conectar un Robot Nuevo]] — guion genérico para dar de alta un robot distinto
+- [[Anatomía de un Nodo]] — el pipeline YAML → nodo → callbacks, paso a paso
 
 ## Referencias técnicas (viven en el propio repo, no en este vault)
 

@@ -28,6 +28,11 @@ bloque del roadmap):
      "verificado", o gana/pierde un método del contrato).
    - `Decisiones/Decisiones de Diseño Clave.md` — cualquier decisión de
      diseño no trivial, con fecha y motivo.
+   - `Diario/<AAAA-MM-DD>.md` — una entrada por cada día de trabajo real
+     (no por cada mensaje), con el orden cronológico de lo que se hizo y
+     enlaces `[[...]]` a las notas de arriba para el detalle, en vez de
+     repetirlo. Añadir el enlace nuevo en `Diario/Diario.md` (más reciente
+     primero).
 
 **No es opcional ni algo a hacer "cuando se acuerde"**: es el mismo hábito
 que ya existe para ROADMAP.md/Vikunja, aplicado también al vault. Motivo

@@ -9,11 +9,15 @@ leerla entera de una sentada — vuelve cuando algo no te cuadre.
 
 ## Qué es un "vault"
 
-Ni más ni menos que esta carpeta: `~/Documents/ObsidianVaults/robot-control-hexagonal/`.
+Ni más ni menos que esta carpeta: `obsidian-vault/`, dentro del propio repo
+`~/Desktop/robot-control-hexagonal/` desde el 07/09 (antes vivía fuera, sin
+versionar, en `~/Documents/ObsidianVaults/robot-control-hexagonal/`).
 Todo son ficheros `.md` en texto plano — puedes editarlos con cualquier editor,
 Obsidian solo añade la capa de enlaces/grafo/búsqueda encima. Al abrir esta
 carpeta como vault en la app, Obsidian crea una subcarpeta `.obsidian/` con su
-configuración (no la he creado yo a mano).
+configuración (no la he creado yo a mano); el estado de pestañas abiertas
+(`workspace.json`) está excluido del control de versiones vía `.gitignore`
+del repo — es estado local de la app, no contenido.
 
 ## Enlaces `[[así]]`
 
@@ -84,3 +88,7 @@ Cuando cierres un bloque de trabajo real en el repo:
    existente, esa sí es una nota nueva de verdad — enlázala desde
    [[Arquitectura Hexagonal]] o desde donde tenga más sentido, y desde [[Home]]
    si es lo bastante central.
+4. Añade (o actualiza) la entrada del día en [[Diario]] — el orden
+   cronológico de los hechos, enlazando a las notas de arriba para el
+   detalle en vez de repetirlo. Ver `CLAUDE.md` en la raíz del repo para la
+   instrucción completa de qué mantener sincronizado y cuándo.
