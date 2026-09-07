@@ -24,7 +24,7 @@ en sí mismo:
 |---|---|---|---|
 | `Commander` | `commander` | (ninguno — capa de aplicación) | Sí (`commander`) |
 | `ControlSession` | `commander` | (ninguno — orquestador de procesos) | No — vive dentro del proceso `Commander`, lanza a los otros dos como `subprocess.Popen` |
-| `robot_node` | `robot_node` | `RobotControllerPort` | Sí (`robot_node`) |
+| `robot_node` | `robot_node` | `RobotConnectorPort` | Sí (`robot_node`) |
 | `controller_node` | `controller_node` | `KinematicsPort` / `PlanningPort` / `PlannerSelectionPort` | Sí (`controller_node`) |
 
 Cada `ControlSession` lanza **un `robot_node` y un `controller_node` como
@@ -64,7 +64,7 @@ muerto — no hay supervisión real todavía.
 ### 1.2 `robot_node`
 
 **Responsabilidad única:** traducir entre mensajes ROS2 y el dominio de
-ejecución, y delegar en un adaptador concreto de `RobotControllerPort`.
+ejecución, y delegar en un adaptador concreto de `RobotConnectorPort`.
 Ejecuta `set_joints(configuration)` cuando le llega un `joint_command`, y
 publica `get_current_configuration()` periódicamente como `joint_states`.
 
@@ -78,7 +78,7 @@ viene de `naive_test`, `coppeliasim_ik` o cualquier otro adaptador de
 `controller_node` — para `robot_node`, todos son iguales: una secuencia de
 `JointConfiguration`.
 
-**No forma parte de `RobotControllerPort`, pero este adaptador concreto lo
+**No forma parte de `RobotConnectorPort`, pero este adaptador concreto lo
 ofrece igualmente** (decoración puramente visual, opcional): `mark_goal`
 (deja un dummy en el punto objetivo) y el trail de waypoints si se le da
 `tip_name`. `robot_node` los usa solo si el adaptador los expone
@@ -214,7 +214,7 @@ vigilancia y la política de relanzamiento.
 
 | Puerto (Protocol) | Nodo que lo adapta | Adaptadores existentes | Adaptadores pendientes |
 |---|---|---|---|
-| `RobotControllerPort` | `robot_node` | `CoppeliaSimRobotAdapter` | `Cr5RealRobotAdapter` |
+| `RobotConnectorPort` | `robot_node` | `CoppeliaSimRobotAdapter` | `Cr5RealRobotAdapter` |
 | `KinematicsPort` | `controller_node` | `NaiveTestKinematicsAdapter`, `StraightLineKinematicsAdapter`, `CoppeliaSimIkKinematicsAdapter` | `PoeKinematicsAdapter`, `GaKinematicsAdapter`, `DhKinematicsAdapter` |
 | `PlanningPort` | `controller_node` (futuro) | — | CHOMP, RRT (Bloque 4) |
 | `PlannerSelectionPort` | `controller_node` (futuro, interno) | — | Bloque 5 |

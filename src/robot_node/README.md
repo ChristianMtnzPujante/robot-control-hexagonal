@@ -1,6 +1,6 @@
 # robot_node
 
-Adaptador de entrada/salida ROS2 alrededor de `RobotControllerPort`: ejecuta
+Adaptador de entrada/salida ROS2 alrededor de `RobotConnectorPort`: ejecuta
 `joint_command`, reporta `joint_states`. No decide nada — ver `README.md`
 raíz y `docs/nodos_ros2.md` §1.2 para su responsabilidad exacta.
 

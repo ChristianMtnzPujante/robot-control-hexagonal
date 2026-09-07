@@ -125,7 +125,7 @@ def build_scene(
 
     Deja la simulación en marcha al terminar y devuelve un
     `CoppeliaSimRobotAdapter` ya conectado a `joint_names`/`tip_name`
-    recién importados -- listo para usar como `RobotControllerPort` sin
+    recién importados -- listo para usar como `RobotConnectorPort` sin
     volver a resolver handles."""
     # Import perezoso: evita una dependencia circular con robot_node en el
     # nivel de módulo (commander ya depende de robot_node, ver package.xml,
@@ -148,7 +148,7 @@ def build_scene(
     # descubierto en vivo, en dos capas: (1) los joints en
     # jointmode_dynamic, por lo que `set_joints` (que solo llama
     # sim.setJointPosition, pensado para joints cinemáticos, ver
-    # RobotControllerPort) no se sostiene entre waypoints; (2) aunque se
+    # RobotConnectorPort) no se sostiene entre waypoints; (2) aunque se
     # fuerce el joint a cinemático, los shapes "respondable" siguen
     # marcados dinámicos y el motor de físicas sigue moviéndolos de forma
     # independiente del árbol cinemático, produciendo posiciones finales

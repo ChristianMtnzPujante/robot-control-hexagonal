@@ -1,7 +1,7 @@
 """Demo: dos ControlSession simultáneas e independientes, cada una con su
 propia instancia de CoppeliaSim y su propio cálculo de cinemática --
 ejemplo de que cambiar de robot o de estrategia de cálculo es cuestión de
-parámetros de create_session, no de tocar código (RobotControllerPort /
+parámetros de create_session, no de tocar código (RobotConnectorPort /
 KinematicsPort son los únicos puntos de contacto).
 
 Sesión A: escena cr5_base.ttt, cinemática PoeKinematicsAdapter (matemática

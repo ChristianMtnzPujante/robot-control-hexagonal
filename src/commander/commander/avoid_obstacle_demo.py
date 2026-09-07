@@ -2,7 +2,7 @@
 ver ROADMAP.md Bloque 4 y Bloque 9): compone `KinematicsPort`
 (`PoeKinematicsAdapter`, cinemática propia vía PoE) + `PlanningPort`
 (`ObstacleAvoidingPlanningAdapter`, evitación mínima de un obstáculo
-esférico) + `RobotControllerPort` (`CoppeliaSimRobotAdapter`) directamente,
+esférico) + `RobotConnectorPort` (`CoppeliaSimRobotAdapter`) directamente,
 sin pasar por `ControlSession`/`ControllerNode` -- `PlanningPort` todavía no
 está wireado dentro del grafo de nodos ROS2 (ver
 docs/pipeline_percepcion_planificacion.md §6). No necesita `rclpy`.

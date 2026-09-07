@@ -14,6 +14,8 @@ incluso en máquinas distintas si algún día hace falta.
 
 from __future__ import annotations
 
+import os
+import signal
 import subprocess
 from typing import List, Optional
 
@@ -34,6 +36,9 @@ class ControlSession:
         urdf_path: str = "",
         base_link: str = "",
         tip_link: str = "",
+        cr5_host: str = "",
+        naive_test_amplitude_radians: Optional[float] = None,
+        naive_test_steps: Optional[int] = None,
     ):
         self.namespace = namespace
         self._robot_target = robot_target
@@ -60,6 +65,14 @@ class ControlSession:
         self._urdf_path = urdf_path
         self._base_link = base_link
         self._tip_link = tip_link
+        # Vacío/None conserva el default de cada YAML (robot_node.yaml
+        # cr5_host="192.168.1.100"; controller_node.yaml
+        # naive_test_amplitude_radians=0.8/naive_test_steps=20, los mismos
+        # de siempre en simulación) -- solo se pasan por -p si se piden
+        # explícitamente, igual que tip_name/scene_path más abajo.
+        self._cr5_host = cr5_host
+        self._naive_test_amplitude_radians = naive_test_amplitude_radians
+        self._naive_test_steps = naive_test_steps
         self._robot_process: Optional[subprocess.Popen] = None
         self._controller_process: Optional[subprocess.Popen] = None
 
@@ -121,18 +134,61 @@ class ControlSession:
             controller_args += ["-p", f"base_link:={self._base_link}"]
         if self._tip_link:
             controller_args += ["-p", f"tip_link:={self._tip_link}"]
-        self._robot_process = subprocess.Popen(robot_args)
-        self._controller_process = subprocess.Popen(controller_args)
+        if self._cr5_host:
+            robot_args += ["-p", f"cr5_host:={self._cr5_host}"]
+        if self._naive_test_amplitude_radians is not None:
+            controller_args += [
+                "-p", f"naive_test_amplitude_radians:={self._naive_test_amplitude_radians}"
+            ]
+        if self._naive_test_steps is not None:
+            controller_args += ["-p", f"naive_test_steps:={self._naive_test_steps}"]
+        # start_new_session=True: cada proceso arranca como líder de su
+        # PROPIO grupo de procesos -- necesario para que stop() pueda
+        # señalar al grupo entero, no solo al PID que Popen devuelve (ver
+        # su docstring, corregido 07/09).
+        self._robot_process = subprocess.Popen(robot_args, start_new_session=True)
+        self._controller_process = subprocess.Popen(controller_args, start_new_session=True)
 
     def stop(self) -> None:
         for process in (self._robot_process, self._controller_process):
             if process is None:
                 continue
-            process.terminate()
+            self._terminate_process_group(process)
+
+    def _terminate_process_group(self, process: subprocess.Popen) -> None:
+        """CORREGIDO 07/09 -- hallazgo real, encontrado tras acumular media
+        docena de robot_node/controller_node zombies en una sola sesión de
+        trabajo (dos de ellos con conexión TCP abierta al CR5 físico en el
+        momento de descubrirlo, ver ROADMAP.md Bloque 0): `ros2 run` NO
+        hace exec() sobre el ejecutable real, lanza su propio proceso hijo
+        -- el PID que devuelve `subprocess.Popen(["ros2","run",...])` es el
+        del LANZADOR de `ros2 run`, no el del nodo rclpy real. Terminar
+        solo ese PID (lo que hacía esta función antes) mataba el lanzador
+        pero dejaba el nodo real huérfano (reparentado a init) sin recibir
+        NUNCA la señal -- confirmado en vivo comparando `ps aux` antes y
+        después de sucesivos `stop()`.
+
+        El grupo de procesos (ver start(), start_new_session=True) SÍ
+        incluye al hijo real aunque quede reparentado a init -- la
+        pertenencia a un grupo de procesos no cambia al reparentar, solo
+        el padre. Señalar el grupo entero (PID negativo) llega a ambos sin
+        necesidad de saber el mecanismo interno exacto de `ros2 run`."""
+        try:
+            pgid = os.getpgid(process.pid)
+        except ProcessLookupError:
+            return  # ya no existe ni el lanzador -- nada que hacer
+        try:
+            os.killpg(pgid, signal.SIGTERM)
+        except ProcessLookupError:
+            return
+        try:
+            process.wait(timeout=5.0)
+        except subprocess.TimeoutExpired:
             try:
-                process.wait(timeout=5.0)
-            except subprocess.TimeoutExpired:
-                process.kill()
+                os.killpg(pgid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            process.wait()
 
     def __enter__(self) -> "ControlSession":
         self.start()

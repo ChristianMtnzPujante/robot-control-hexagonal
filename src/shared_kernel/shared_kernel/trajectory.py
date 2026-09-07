@@ -13,7 +13,7 @@ class Trajectory:
     """Una secuencia ordenada de waypoints a ejecutar en orden.
 
     Es lo que produce un KinematicsPort (PoE, GA, DH...) y lo que
-    consume un RobotControllerPort, waypoint a waypoint.
+    consume un RobotConnectorPort, waypoint a waypoint.
     """
 
     waypoints: List[JointConfiguration]

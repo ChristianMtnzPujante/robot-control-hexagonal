@@ -17,7 +17,7 @@ decisión de planificación -- Commander sigue sin saber qué estrategia usa
 from __future__ import annotations
 
 import json
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import rclpy
 from geometry_msgs.msg import Pose as PoseMsg
@@ -57,6 +57,9 @@ class Commander(Node):
         urdf_path: str = "",
         base_link: str = "",
         tip_link: str = "",
+        cr5_host: str = "",
+        naive_test_amplitude_radians: Optional[float] = None,
+        naive_test_steps: Optional[int] = None,
     ) -> ControlSession:
         namespace = f"/session_{name}"
         session = ControlSession(
@@ -71,6 +74,9 @@ class Commander(Node):
             urdf_path=urdf_path,
             base_link=base_link,
             tip_link=tip_link,
+            cr5_host=cr5_host,
+            naive_test_amplitude_radians=naive_test_amplitude_radians,
+            naive_test_steps=naive_test_steps,
         )
         session.start()
         self._sessions[name] = session

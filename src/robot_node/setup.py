@@ -16,12 +16,15 @@ setup(
     zip_safe=True,
     maintainer='chris',
     maintainer_email='chris@example.com',
-    description='Nodo Robot: adaptador ROS2 alrededor de un RobotControllerPort',
+    description='Nodo Robot: adaptador ROS2 alrededor de un RobotConnectorPort',
     license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'robot_node = robot_node.node:main',
+            'cr5_first_contact_demo = robot_node.cr5_first_contact_demo:main',
+            'cr5_repeated_joint1_moves_demo = robot_node.cr5_repeated_joint1_moves_demo:main',
+            'cr5_disable_demo = robot_node.cr5_disable_demo:main',
         ],
     },
 )

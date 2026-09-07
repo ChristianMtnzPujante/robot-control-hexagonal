@@ -13,7 +13,8 @@ from .ports import (
     PerceptionPort,
     PlannerSelectionPort,
     PlanningPort,
-    RobotControllerPort,
+    RobotConnectorError,
+    RobotConnectorPort,
 )
 from .robot_description import JointDescription, JointType, RobotDescription
 from .trajectory import Trajectory
@@ -41,7 +42,8 @@ __all__ = [
     "SphereObstacle",
     "Scene",
     "Trajectory",
-    "RobotControllerPort",
+    "RobotConnectorError",
+    "RobotConnectorPort",
     "KinematicsPort",
     "PerceptionPort",
     "PlanningPort",

@@ -16,7 +16,7 @@ que este mecanismo resuelva todavía.
 from __future__ import annotations
 
 import json
-from typing import Optional
+from typing import Callable, Dict, Optional
 
 from geometry_msgs.msg import Pose as PoseMsg
 from rclpy.node import Node
@@ -32,7 +32,7 @@ from ros2_kit import (
 from sensor_msgs.msg import JointState
 from std_msgs.msg import String
 
-from shared_kernel import JointConfiguration, Pose, RobotDescription
+from shared_kernel import JointConfiguration, KinematicsPort, Pose, RobotDescription
 from urdf_kit import parse_urdf_file
 
 from .adapters.coppeliasim_ik_adapter import CoppeliaSimIkKinematicsAdapter
@@ -43,6 +43,33 @@ from .adapters.poe_adapter import PoeKinematicsAdapter
 from .adapters.straight_line_adapter import StraightLineKinematicsAdapter
 
 _CONFIG_PATH = package_config_path("controller_node", "controller_node.yaml")
+
+# Registro estrategia -> factoría, en vez de un if/elif en _build_adapter:
+# añadir una estrategia nueva es añadir una entrada aquí, no tocar la lógica
+# de _build_adapter (Vikunja Bloque 9 #68). Cada factoría recibe el propio
+# nodo (para leer lo que necesite, p. ej. zmq_port) y el RobotDescription ya
+# resuelto (o None) -- las que no lo usan simplemente lo ignoran.
+_STRATEGIES: Dict[
+    str, Callable[["ControllerNode", Optional[RobotDescription]], KinematicsPort]
+] = {
+    "poe": lambda node, robot_description: (
+        PoeKinematicsAdapter(robot_description=robot_description)
+        if robot_description is not None
+        else PoeKinematicsAdapter()
+    ),
+    "ga": lambda node, robot_description: GaKinematicsAdapter(
+        robot_description=robot_description
+    ),
+    "dh": lambda node, robot_description: DhKinematicsAdapter(),
+    "naive_test": lambda node, robot_description: NaiveTestKinematicsAdapter(
+        amplitude_radians=node._naive_test_amplitude_radians,
+        steps=node._naive_test_steps,
+    ),
+    "straight_line": lambda node, robot_description: StraightLineKinematicsAdapter(),
+    "coppeliasim_ik": lambda node, robot_description: CoppeliaSimIkKinematicsAdapter(
+        zmq_port=node._zmq_port
+    ),
+}
 
 
 class ControllerNode(Node):
@@ -59,6 +86,10 @@ class ControllerNode(Node):
         self._urdf_path = self.get_parameter("urdf_path").value
         self._base_link = self.get_parameter("base_link").value
         self._tip_link = self.get_parameter("tip_link").value
+        self._naive_test_amplitude_radians = float(
+            self.get_parameter("naive_test_amplitude_radians").value
+        )
+        self._naive_test_steps = int(self.get_parameter("naive_test_steps").value)
 
         strategy = self.get_parameter("strategy").value
         self._strategy = strategy
@@ -77,26 +108,15 @@ class ControllerNode(Node):
 
         self.get_logger().info(f'controller_node listo, strategy="{strategy}"')
 
-    def _build_adapter(self, strategy: str):
+    def _build_adapter(self, strategy: str) -> KinematicsPort:
         # Lee zmq_port/urdf_path/base_link/tip_link de self -- no cambian
         # entre llamadas, así que _on_set_strategy puede llamar a esto de
         # nuevo pasando solo la estrategia nueva (ver ROADMAP.md, Bloque 9).
         robot_description = self._load_robot_description()
-        if strategy == "poe":
-            if robot_description is None:
-                return PoeKinematicsAdapter()
-            return PoeKinematicsAdapter(robot_description=robot_description)
-        if strategy == "ga":
-            return GaKinematicsAdapter(robot_description=robot_description)
-        if strategy == "dh":
-            return DhKinematicsAdapter()
-        if strategy == "naive_test":
-            return NaiveTestKinematicsAdapter()
-        if strategy == "straight_line":
-            return StraightLineKinematicsAdapter()
-        if strategy == "coppeliasim_ik":
-            return CoppeliaSimIkKinematicsAdapter(zmq_port=self._zmq_port)
-        raise ValueError(f'strategy desconocida: "{strategy}"')
+        factory = _STRATEGIES.get(strategy)
+        if factory is None:
+            raise ValueError(f'strategy desconocida: "{strategy}"')
+        return factory(self, robot_description)
 
     def _load_robot_description(self) -> Optional[RobotDescription]:
         # Vacío -- ningún robot cargado, cada adaptador usa su propio

@@ -87,7 +87,7 @@ from std_msgs.msg import String
 
 
 # --- 2. Puerto de dominio DE MENTIRA -- en un nodo real esto sería un
-# Protocol importado de shared_kernel (RobotControllerPort, PerceptionPort,
+# Protocol importado de shared_kernel (RobotConnectorPort, PerceptionPort,
 # ...), no una clase inventada aquí.
 class _StubPort:
     def do_something(self, payload: str) -> str:

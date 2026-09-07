@@ -2,14 +2,14 @@
 API remota ZMQ, directamente desde este proceso Python — sin pasar por
 ningún script Lua embebido en la escena.
 
-Implementa RobotControllerPort por duck typing (typing.Protocol): no
+Implementa RobotConnectorPort por duck typing (typing.Protocol): no
 hereda de nada, solo tiene los métodos que el puerto exige.
 
 Además decora la escena para poder ver la trayectoria: si se le da
 `tip_name`, deja un dummy en cada waypoint por el que pasa (trail); y si
 algo le manda el objetivo cartesiano vía `mark_goal`, otro dummy distinto
 en el punto objetivo. Ninguna de las dos cosas forma parte de
-RobotControllerPort -- son puramente cosméticas y específicas de este
+RobotConnectorPort -- son puramente cosméticas y específicas de este
 adaptador, así que robot_node las usa solo si el adaptador las ofrece.
 
 Si se le da `scene_path`, carga esa escena y arranca la simulación él
@@ -77,6 +77,15 @@ class CoppeliaSimRobotAdapter:
         # al construir el adaptador), así que este Either siempre es Right.
         return result.value
 
+    def close(self) -> None:
+        # No-op deliberado, no un olvido: RemoteAPIClient no expone (ni se
+        # ha verificado aquí) un cierre propio, y la escena/simulación
+        # puede seguir compartida por otras sesiones (ver
+        # two_sessions_demo.py) -- cerrarla no sería correcto aunque
+        # existiera el método. Existe solo para cumplir RobotConnectorPort
+        # (Bloque 0 #116), igual que Cr5RealRobotAdapter.close().
+        pass
+
     def mark_goal(self, goal: Pose) -> None:
         if self._goal_dummy_handle is None:
             self._goal_dummy_handle = self._sim.createDummy(0.03, _GOAL_COLOR)
@@ -87,7 +96,7 @@ class CoppeliaSimRobotAdapter:
 
     def mark_obstacle(self, obstacle: SphereObstacle) -> None:
         """Cosmético, igual que `mark_goal`: no forma parte de
-        `RobotControllerPort`, solo ayuda a ver en la escena lo que un
+        `RobotConnectorPort`, solo ayuda a ver en la escena lo que un
         `PlanningPort` está evitando (ver
         `controller_node/adapters/obstacle_avoiding_planning_adapter.py`).
         Crea una esfera visual real del radio del obstáculo -- sin física
@@ -118,7 +127,7 @@ class CoppeliaSimRobotAdapter:
 
     def _drop_trail_marker(self) -> None:
         # Sin tip_name no sabemos qué objeto leer para la posición cartesiana
-        # del waypoint, así que no decoramos nada (RobotControllerPort sigue
+        # del waypoint, así que no decoramos nada (RobotConnectorPort sigue
         # cumpliéndose igual, esto es solo cosmético).
         if self._tip_handle is None:
             return

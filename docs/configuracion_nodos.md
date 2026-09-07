@@ -68,15 +68,16 @@ ros2 param describe /controller_node waypoint_period_seconds   # incluye el rang
 
 ## `robot_node`
 
-Adaptador de `RobotControllerPort` — ejecuta `joint_command`, reporta
+Adaptador de `RobotConnectorPort` — ejecuta `joint_command`, reporta
 `joint_states`. YAML: `src/robot_node/config/robot_node.yaml`.
 
 | Parámetro | Tipo | Default | Rango | Significado |
 |---|---|---|---|---|
-| `robot_target` | string | `simulado` | — | `"simulado"` → `CoppeliaSimRobotAdapter`; `"real"` → `Cr5RealRobotAdapter` (host/puerto TCP hardcodeados en el adaptador, no configurables por parámetro hoy). |
+| `robot_target` | string | `simulado` | — | `"simulado"` → `CoppeliaSimRobotAdapter`; `"real"` → `Cr5RealRobotAdapter`. |
 | `joint_names` | string[] | `[joint1..joint6]` | — | Nombres de las articulaciones, en orden. Para `robot_node` es un valor **literal** — de dónde sale (a mano, o derivado de un URDF) lo decide quien lo lanza, no este nodo (ver la sección de `Commander` más abajo). Por CLI: `-p joint_names:="[joint1,joint2,...]"`. |
 | `state_publish_period_seconds` | double | `0.05` | `0.01–5.0` | Cada cuánto se publica `joint_states`. |
 | `tip_name` | string | `""` (vacío) | — | Nombre del dummy "tip" en la escena CoppeliaSim, solo decorativo (trail de waypoints). Vacío lo desactiva. |
+| `cr5_host` | string | `192.168.1.100` | — | IP del controlador del CR5 físico, solo usada si `robot_target="real"`. Los puertos TCP (29999/30004) sí son constantes del protocolo, no configuración (ver `adapters/_cr5_protocol.py`). |
 | `scene_path` | string | `""` (vacío) | — | Ruta a un `.ttt` a cargar y poner en play al arrancar. Vacío asume que ya hay una escena abierta. |
 | `zmq_port` | int | `23000` | — | Puerto ZMQ de la instancia de CoppeliaSim a la que conectar (varias instancias = varios puertos, ver `commander_demo_two_sessions`). |
 

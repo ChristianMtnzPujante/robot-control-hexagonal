@@ -28,6 +28,9 @@ setup(
             'avoid_obstacle_demo_compare = commander.avoid_obstacle_demo_compare:main',
             'perception_replan_demo = commander.perception_replan_demo:main',
             'file_perception_goal_demo = commander.file_perception_goal_demo:main',
+            'real_cr5_first_session_demo = commander.real_cr5_first_session_demo:main',
+            'poe_sim_then_real_demo = commander.poe_sim_then_real_demo:main',
+            'poe_lift_and_wrist_demo = commander.poe_lift_and_wrist_demo:main',
         ],
     },
 )

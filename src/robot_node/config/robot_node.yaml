@@ -24,7 +24,7 @@ parameters:
     range: {min: 0.01, max: 5.0}
   # Nombre del dummy/objeto "tip" en la escena de CoppeliaSim, solo para
   # decoración visual (dejar un trail de waypoints). Vacío desactiva esa
-  # decoración. No afecta a RobotControllerPort.
+  # decoración. No afecta a RobotConnectorPort.
   tip_name:
     type: string
     default: ""
@@ -40,6 +40,14 @@ parameters:
   zmq_port:
     type: int
     default: 23000
+  # IP del controlador del CR5 físico -- solo se usa si robot_target="real".
+  # Los tres puertos TCP (dashboard/motion/real-time) NO son configuración:
+  # son constantes del protocolo del fabricante (ver
+  # adapters/_cr5_protocol.py). Este valor por defecto sigue sin confirmar
+  # contra el robot físico -- ver checklist de Bloque 0 (#112).
+  cr5_host:
+    type: string
+    default: "192.168.1.100"
 
 subscriptions:
   - topic: joint_command

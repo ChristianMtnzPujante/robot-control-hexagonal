@@ -31,6 +31,18 @@ parameters:
   tip_link:
     type: string
     default: ""
+  # Amplitud/nº de pasos de la estrategia "naive_test" (ver
+  # NaiveTestKinematicsAdapter) -- por defecto, los mismos valores que ya
+  # traía el adaptador (visibles en simulación). Configurable para poder
+  # pedir un barrido deliberadamente pequeño contra un robot real (ver
+  # commander/real_cr5_first_session_demo.py) sin tocar el default de
+  # simulación. No afecta a ninguna otra estrategia.
+  naive_test_amplitude_radians:
+    type: double
+    default: 0.8
+  naive_test_steps:
+    type: int
+    default: 20
 
 subscriptions:
   - topic: goal

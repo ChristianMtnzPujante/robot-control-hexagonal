@@ -3,7 +3,7 @@
 <package format="3">
   <name>robot_node</name>
   <version>0.0.1</version>
-  <description>Nodo Robot: adaptador de entrada/salida ROS2 alrededor de un RobotControllerPort (CoppeliaSim o CR5 real)</description>
+  <description>Nodo Robot: adaptador de entrada/salida ROS2 alrededor de un RobotConnectorPort (CoppeliaSim o CR5 real)</description>
   <maintainer email="chris@example.com">chris</maintainer>
   <license>Apache-2.0</license>
 

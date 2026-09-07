@@ -16,7 +16,20 @@ from .trajectory import Trajectory
 from .value_objects import JointConfiguration
 
 
-class RobotControllerPort(Protocol):
+class RobotConnectorError(Exception):
+    """Fallo al ejecutar un comando sobre el robot a través de un
+    RobotConnectorPort -- de comunicación (red, protocolo) o del propio
+    robot rechazando el comando, NUNCA un error de programación. robot_node
+    la captura genéricamente (ver _on_joint_command) para no morir por un
+    hipo de red -- por eso vive aquí, junto al puerto, y no dentro de un
+    adaptador concreto: robot_node no debe saber que Cr5ProtocolError
+    existe (rompería el 'la misma imagen sirve para cualquier robot' que
+    es la razón de ser de este puerto). Cada adaptador que necesite más
+    detalle puede definir su propia subclase (ver Cr5ProtocolError) y
+    seguirá siendo capturable como RobotConnectorError."""
+
+
+class RobotConnectorPort(Protocol):
     """El 'nodo robot': ejecuta comandos crudos sobre un robot,
     simulado o real. Nunca calcula nada, solo obedece y reporta.
     """
@@ -24,6 +37,17 @@ class RobotControllerPort(Protocol):
     def set_joints(self, configuration: JointConfiguration) -> None: ...
 
     def get_current_configuration(self) -> JointConfiguration: ...
+
+    def close(self) -> None:
+        """Libera lo que este adaptador tenga abierto (sockets, clientes
+        de simulador...) y deja el robot en un estado seguro si aplica
+        (p. ej. Cr5RealRobotAdapter des-energiza antes de cerrar). Parte
+        formal del puerto desde el 07/09 (Vikunja Bloque 0 #116) -- antes
+        era un método suelto solo en Cr5RealRobotAdapter, y robot_node no
+        lo llamaba en ningún camino de cierre porque no formaba parte del
+        contrato que robot_node conoce. Un adaptador sin nada que liberar
+        (p. ej. CoppeliaSimRobotAdapter hoy) lo implementa como no-op."""
+        ...
 
 
 class KinematicsPort(Protocol):

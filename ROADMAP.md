@@ -9,7 +9,7 @@ supervisa a ritmo lento, interviniendo solo cuando la tarea se rompe a un
 nivel que el planificador no puede resolver solo (Régimen 2 lento).
 
 Estado de partida (ver `README.md`): arquitectura hexagonal con
-`RobotControllerPort`/`KinematicsPort` en `shared_kernel`, `ControlSession`
+`RobotConnectorPort`/`KinematicsPort` en `shared_kernel`, `ControlSession`
 como orquestador de procesos ROS2, adaptadores GA/PoE/DH aún como stubs
 (`NotImplementedError`). No hay todavía percepción, planificación con
 evitación de obstáculos, ni LLM en el sistema.
@@ -46,19 +46,74 @@ propio.
 
 ---
 
-## Bloque 0 — Cerrar el esqueleto clásico (fundación)
+## Bloque 0 — CR5: instanciación y caso de uso real
 
-- [ ] Implementar cinemática real en al menos un `KinematicsPort`
+Objetivo de este bloque (redefinido 04/09): dejar de ser la base teórica del
+sistema clásico (esa base ya no depende de un robot fijo, ver Bloque 9) y
+pasar a ser la instanciación concreta y el ejemplo de uso real de la
+arquitectura hexagonal contra el CR5 -- lo que sigue siendo específico de
+ESTE robot, no generalizable. `ga_adapter.py` se movió al Bloque 1: no
+bloquea esta instanciación, solo se pospone.
+
+- [x] Implementar cinemática real en al menos un `KinematicsPort`
       (`poe_adapter.py` o `dh_adapter.py`) — hoy `naive_test` y
       `straight_line` son dobles de pruebas, no resuelven IK de verdad.
-- [ ] Decidir qué hacer con `ga_adapter.py`: invertir ya en compilar
-      `pygafro`, o aparcarlo explícitamente detrás de PoE/DH para no
-      bloquear el resto del roadmap con una dependencia externa difícil.
 - [ ] Tests de integración end-to-end de `ControlSession` en simulación
       (hoy solo hay el demo manual del README).
-- [ ] Decisión mínima sobre `Cr5RealRobotAdapter`/`ros1_kit` (bridge ROS1
-      vs reimplementar TCP/IP) — no hace falta implementarlo ya, pero sí
-      no dejarlo indefinido para siempre.
+- [x] Decisión sobre `Cr5RealRobotAdapter`/`ros1_kit` (04/09): **reimplementar
+      TCP/IP directo**, no puente ROS1 — este entorno no tiene ROS1 Noetic
+      instalado junto a ROS2 Humble (requisito duro de la vía puente,
+      documentado en el propio `bridge.py`), mientras que reimplementar el
+      protocolo es puro Python/ROS2, sin dependencias nuevas.
+
+**Guion de conexión real con el CR5 físico (añadido 04/09, ver Vikunja
+Bloque 0 #20/#110/#111/#112/#113):**
+
+- [x] Vía "reimplementar TCP/IP" (04/09, **corregida el mismo día**):
+      `Cr5RealRobotAdapter` habla el protocolo real, en
+      `adapters/_cr5_protocol.py` + `adapters/cr5_real_adapter.py`. La
+      primera versión se basó solo en el driver de referencia
+      (`dobot_bringup/include/dobot_bringup/commander.h`,
+      `~/ros2_ws/src/TCP-IP-ROS-6AXis`, fechado 2021) y asumía un puerto de
+      movimiento aparte (30003) con `JointMovJ(j1,...,j6)`. Al encontrar y
+      leer el **manual oficial del fabricante**
+      (`~/ros2_ws/src/TCP-IP-ROS-6AXis/misc/Dobot TCP_IP二次开发接口文档_V4.6.5_20251015_cn.pdf`,
+      2025 — mucho más reciente que el driver) resultó que ese puerto NO
+      existe en el protocolo actual: solo hay 29999/30004/30005/30006, y el
+      movimiento articular se manda como `MovJ(joint={j1,...,j6})` por el
+      MISMO puerto 29999 ("Dashboard"). El formato de la trama real-time
+      (puerto 30004, 1440 bytes, `q_actual` en el byte 432, valor mágico en
+      el 48) sí coincidía entre driver y manual -- esa parte no cambió.
+      Cubierto por tests contra un servidor TCP de mentira que imita el
+      protocolo del manual (`src/robot_node/test/test_cr5_protocol.py`,
+      `test_cr5_real_adapter.py`) — **sin verificar todavía contra el robot
+      físico**, y el propio manual puede no coincidir con el firmware
+      exacto de este CR5 (confirmarlo es parte del checklist, #112). **Sin**
+      validar límites articulares/velocidad antes de `MovJ` (queda abierto,
+      ver tarea aparte de límites de seguridad).
+- [x] Vía "puente ROS1" (04/09, descartada): no se implementa — la decisión
+      de arriba fue por la vía TCP/IP directo. `ros1_kit/bridge.py` se deja
+      tal cual, como boceto sin usar.
+- [x] Cablear `robot_node/node.py::_build_adapter` (rama `"real"`) para
+      pasar la info de conexión real (04/09): con la vía TCP/IP elegida, los
+      2 puertos son constantes del protocolo, no parámetros — lo único que
+      faltaba pasar de verdad era el host y los `joint_names` (nuevo
+      parámetro ROS2 `cr5_host`, ver `robot_node.yaml`).
+- [ ] Validar límites articulares/velocidad en `Cr5RealRobotAdapter.set_joints`
+      antes de mandar `MovJ` (deliberadamente NO incluido en la
+      implementación del 04/09) — hoy manda lo que le llegue, tal cual.
+- [ ] Checklist físico/de red antes del primer movimiento real: confirmar
+      IP/puertos contra el propio robot (`192.168.1.100` nunca se ha
+      verificado contra hardware; ni el número de versión del manual
+      oficial contra el firmware real), comprobar accesibilidad de los 2
+      puertos TCP (29999, 30004), probar el procedimiento de parada de
+      emergencia (e-stop físico + `EmergencyStop()`/`ClearError()`), zona
+      despejada y velocidad reducida para la primera prueba.
+- [ ] Primera validación real end-to-end: mover el CR5 físico a través de
+      todo el stack (Commander → controller_node → robot_node → adaptador
+      real), comparando `get_current_configuration()` contra el teach
+      pendant. Objetivo de cierre de este bloque.
+
 - [ ] **Propuesta (03/09, sin diseñar todavía — ver Vikunja):** modularizar
       la definición de canales ROS2 (topics, QoS, tipo de mensaje, quién
       publica/suscribe) fuera del código Python, en JSON/YAML — hoy
@@ -80,6 +135,11 @@ propio.
       cinemática de cadenas seriales frente a DH.
 - [ ] Evaluar `pygafro`/`gafro_ros`: qué API exponen realmente, qué falta
       compilar, si merece la pena para el CR5 concreto.
+- [ ] Decidir qué hacer con `ga_adapter.py`: invertir ya en compilar
+      `pygafro`, o aparcarlo explícitamente detrás de PoE/DH — no bloquea
+      nada (la cinemática real ya se resolvió en Bloque 0 con PoE), es solo
+      cuándo invertir en la dependencia externa. *(movido desde Bloque 0 el
+      04/09 — GA se pospone, no bloquea la instanciación CR5)*
 - [x] Documento corto (para ti, no para nadie más) que traduzca: "plano de
       la mesa" → primitiva CGA, "objeto a evitar" → esfera/región CGA.
       Esto es lo que necesitará el Bloque 3. Ver
@@ -407,13 +467,13 @@ de orden sugerido arriba) pero conviene resolverlo antes de que Bloque 3+
       `tip_name="Link6_visual"` son nombres de objetos de la escena
       `cr5_base.ttt` puestos como default del constructor — y, por el
       punto anterior, hoy no hay forma de override por sesión.
-- [ ] `robot_node/node.py::_build_adapter`: la rama `robot_target=="real"`
-      instancia `Cr5RealRobotAdapter(host="192.168.1.100", port=29999)`
-      hardcodeado, sin parámetros. Añadir un segundo robot físico hoy
-      significa una rama `elif` nueva a mano, no configuración. La
-      solución general apunta a una fábrica/registro de
-      `RobotControllerPort` por identidad de robot, en vez de un
-      if/elif fijo en el nodo.
+- [x] `robot_node/node.py::_build_adapter` y `controller_node/node.py::_build_adapter`
+      (04/09): registro `str -> factoría` en vez de if/elif — añadir un
+      robot/estrategia nueva es añadir una entrada al dict, no una rama.
+      Límite explícito del patrón, sin resolver: `Cr5RealRobotAdapter`
+      sigue con `host="192.168.1.100", port=29999` hardcodeado, porque el
+      registro no inventa de dónde saldrían esos datos de conexión para un
+      segundo robot real — eso sigue pendiente en Bloque 0 (#113).
 - [ ] `commander_node.py::main()` (demo) y su comentario sobre que
       `cr5_base.ttt` "no trae un dummy tip dedicado" — una vez exista
       carga de escena general, esa clase de suposición (qué objeto sirve

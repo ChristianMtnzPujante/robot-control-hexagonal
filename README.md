@@ -7,7 +7,7 @@ CoppeliaSim, y en el futuro real), sobre ROS2 Humble.
 
 `Comandante -> Trajectory -> set_joints`, más los puertos de cálculo separados:
 
-- **`RobotControllerPort`** (`shared_kernel/ports.py`) — el "Nodo Robot": ejecuta
+- **`RobotConnectorPort`** (`shared_kernel/ports.py`) — el "Nodo Robot": ejecuta
   `set_joints(configuration)` y reporta `get_current_configuration()`. No calcula
   nada, solo obedece y reporta. Adaptadores: CoppeliaSim (real, funcional) y
   CR5 físico (pendiente — el driver oficial de Dobot es ROS1, no ROS2).
@@ -39,7 +39,7 @@ src/
 ├── shared_kernel/     dominio de ejecución/cinemática (value objects, Either, Trajectory, puertos) — sin ROS2, depende de geometry_kernel
 ├── ros2_kit/           infraestructura ROS2 compartida: mensajes <-> dominio, ciclo de vida de nodos
 ├── ros1_kit/           BOCETO sin usar: construir/gestionar un puente ros1_bridge programáticamente
-├── robot_node/         paquete ROS2: adaptador ROS2 alrededor de RobotControllerPort
+├── robot_node/         paquete ROS2: adaptador ROS2 alrededor de RobotConnectorPort
 ├── controller_node/    paquete ROS2: adaptador ROS2 alrededor de KinematicsPort/PlanningPort
 └── commander/          paquete ROS2: ControlSession + Commander
 ```
