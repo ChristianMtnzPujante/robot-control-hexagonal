@@ -38,7 +38,10 @@ checklist físico, Bloque 0 #112).
 
 CORREGIDO 07/09 (Bloque 0 #114): set_joints() ahora rechaza (sin mandar
 nada) cualquier ángulo fuera del límite mecánico real del joint -- ver
-_JOINT_LIMITS_DEGREES. Es defensa en profundidad, no solo teórica: este
+_FACTORY_JOINT_LIMITS_DEGREES (opcionalmente estrechable por sesión, ver
+__init__/joint_limits_degrees, añadido tras una pregunta del usuario
+sobre robots/despliegues distintos). Es defensa en profundidad, no solo
+teórica: este
 mismo proyecto ya tuvo un bug real (IK convergiendo a una vuelta de más,
 joint4=-457°/joint6=540°, ver resumen de sesión 01/09) que una validación
 así habría atrapado igual de bien que la que ya existe en el
@@ -81,13 +84,26 @@ from ._cr5_protocol import (
     Cr5RealtimeSocket,
 )
 
-# Límites articulares mecánicos REALES del CR5 (grados, simétricos --
-# ±valor), indexados por posición (0=J1 ... 5=J6) -- ver la nota
-# "CORREGIDO 07/09 (Bloque 0 #114)" en el docstring del módulo sobre las
-# tres fuentes independientes que los confirman. Vive aquí, no en
-# _cr5_protocol.py: son una propiedad física del brazo, no del protocolo
-# TCP/IP en sí (a diferencia de los puertos/formato de mensaje).
-_JOINT_LIMITS_DEGREES = [360.0, 360.0, 160.0, 360.0, 360.0, 360.0]
+# Límite de FÁBRICA, mecánico, REAL del CR5 (grados, simétrico -- ±valor),
+# indexado por posición (0=J1 ... 5=J6) -- ver la nota "CORREGIDO 07/09
+# (Bloque 0 #114)" en el docstring del módulo sobre las tres fuentes
+# independientes que lo confirman. Vive aquí, no en _cr5_protocol.py: es
+# una propiedad física del brazo, no del protocolo TCP/IP en sí (a
+# diferencia de los puertos/formato de mensaje).
+#
+# Es un TECHO, no un parámetro directamente pisable por `-p`: cualquier
+# override recibido en __init__ (joint_limits_degrees) solo puede
+# ESTRECHAR este límite, nunca ampliarlo -- ver __init__. Así, un robot
+# nuevo (con su propio límite de fábrica distinto) no reutiliza esta
+# constante -- cada RobotConnectorPort de un robot real define la suya
+# propia, verificada contra SU fabricante (ver la guía "Conectar un Robot
+# Nuevo" del vault) -- y para EL MISMO robot, un despliegue que quiera ser
+# más cauto (p. ej. primeras pruebas, o cerca de una persona) puede pedir
+# un límite más pequeño sin poder, por typo o descuido, pedir uno mayor
+# que el real -- mismo motivo por el que DASHBOARD_PORT/REALTIME_PORT
+# (_cr5_protocol.py) tampoco son configuración, resuelto sin renunciar a
+# poder ser MÁS restrictivo cuando convenga.
+_FACTORY_JOINT_LIMITS_DEGREES = [360.0, 360.0, 160.0, 360.0, 360.0, 360.0]
 
 # CP ("continuous path", MovJ(...,cp=valor), rango 0-100, manual sección
 # "平滑过渡参数") -- ratio de suavizado entre el MovJ actual y el
@@ -113,6 +129,7 @@ class Cr5RealRobotAdapter:
         command_port: int = DASHBOARD_PORT,
         realtime_port: int = REALTIME_PORT,
         movj_cp: int = _DEFAULT_MOVJ_CP,
+        joint_limits_degrees: Optional[List[float]] = None,
     ):
         # joint_names[i] es el nombre de dominio del eje físico J{i+1} del
         # CR5 -- el propio robot no tiene nombres, solo un array ordenado
@@ -131,6 +148,26 @@ class Cr5RealRobotAdapter:
             )
         self._joint_names = list(joint_names)
         self._movj_cp = movj_cp
+        # joint_limits_degrees es OPCIONAL y solo puede ESTRECHAR el
+        # límite de fábrica, nunca ampliarlo -- min() por posición, no una
+        # sustitución directa (ver _FACTORY_JOINT_LIMITS_DEGREES arriba
+        # sobre por qué). None (por defecto) usa el límite de fábrica tal
+        # cual, sin recorte.
+        if joint_limits_degrees is None:
+            self._joint_limits_degrees = list(_FACTORY_JOINT_LIMITS_DEGREES)
+        else:
+            if len(joint_limits_degrees) != 6:
+                raise ValueError(
+                    "Cr5RealRobotAdapter: joint_limits_degrees debe traer 6 "
+                    f"valores, se recibieron {len(joint_limits_degrees)}: "
+                    f"{joint_limits_degrees}"
+                )
+            self._joint_limits_degrees = [
+                min(abs(requested), factory)
+                for requested, factory in zip(
+                    joint_limits_degrees, _FACTORY_JOINT_LIMITS_DEGREES
+                )
+            ]
         self._commands = Cr5CommandSocket(host, command_port)
         self._realtime = Cr5RealtimeSocket(host, realtime_port)
         self._realtime.connect()
@@ -269,12 +306,13 @@ class Cr5RealRobotAdapter:
 
     def _validate_joint_limits(self, angles_deg: List[float]) -> None:
         """Rechaza (sin mandar NADA al robot, ni siquiera EnableRobot) si
-        algún ángulo pedido excede el límite mecánico real de su joint
-        (ver _JOINT_LIMITS_DEGREES) -- Bloque 0 #114. Por índice, no por
+        algún ángulo pedido excede el límite EFECTIVO de su joint (límite
+        de fábrica, opcionalmente estrechado en __init__ -- ver
+        self._joint_limits_degrees) -- Bloque 0 #114. Por índice, no por
         nombre: self._joint_names[i] es, por invariante de este adaptador
         (ver __init__), siempre el eje físico J{i+1}, en ese orden."""
         for index, (name, angle_deg) in enumerate(zip(self._joint_names, angles_deg)):
-            limit = _JOINT_LIMITS_DEGREES[index]
+            limit = self._joint_limits_degrees[index]
             if abs(angle_deg) > limit:
                 raise Cr5ProtocolError(
                     f'"{name}" (J{index + 1}) pide {angle_deg:.2f}°, fuera de '

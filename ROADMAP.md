@@ -86,11 +86,9 @@ Bloque 0 #20/#110/#111/#112/#113):**
       el 48) sí coincidía entre driver y manual -- esa parte no cambió.
       Cubierto por tests contra un servidor TCP de mentira que imita el
       protocolo del manual (`src/robot_node/test/test_cr5_protocol.py`,
-      `test_cr5_real_adapter.py`) — **sin verificar todavía contra el robot
-      físico**, y el propio manual puede no coincidir con el firmware
-      exacto de este CR5 (confirmarlo es parte del checklist, #112). **Sin**
-      validar límites articulares/velocidad antes de `MovJ` (queda abierto,
-      ver tarea aparte de límites de seguridad).
+      `test_cr5_real_adapter.py`). **Verificado contra el robot físico el
+      07/09**: el manual coincide con el firmware de este CR5 concreto
+      (confirmado moviendo el robot de verdad, no solo leyendo `RobotMode`).
 - [x] Vía "puente ROS1" (04/09, descartada): no se implementa — la decisión
       de arriba fue por la vía TCP/IP directo. `ros1_kit/bridge.py` se deja
       tal cual, como boceto sin usar.
@@ -99,20 +97,31 @@ Bloque 0 #20/#110/#111/#112/#113):**
       2 puertos son constantes del protocolo, no parámetros — lo único que
       faltaba pasar de verdad era el host y los `joint_names` (nuevo
       parámetro ROS2 `cr5_host`, ver `robot_node.yaml`).
-- [ ] Validar límites articulares/velocidad en `Cr5RealRobotAdapter.set_joints`
-      antes de mandar `MovJ` (deliberadamente NO incluido en la
-      implementación del 04/09) — hoy manda lo que le llegue, tal cual.
-- [ ] Checklist físico/de red antes del primer movimiento real: confirmar
-      IP/puertos contra el propio robot (`192.168.1.100` nunca se ha
-      verificado contra hardware; ni el número de versión del manual
-      oficial contra el firmware real), comprobar accesibilidad de los 2
-      puertos TCP (29999, 30004), probar el procedimiento de parada de
-      emergencia (e-stop físico + `EmergencyStop()`/`ClearError()`), zona
-      despejada y velocidad reducida para la primera prueba.
-- [ ] Primera validación real end-to-end: mover el CR5 físico a través de
-      todo el stack (Commander → controller_node → robot_node → adaptador
-      real), comparando `get_current_configuration()` contra el teach
-      pendant. Objetivo de cierre de este bloque.
+- [x] Validar límites articulares en `Cr5RealRobotAdapter.set_joints` antes
+      de mandar `MovJ` (07/09, parcial): rechaza sin mandar nada si algún
+      ángulo excede ±360° (J1/J2/J4/J5/J6) o ±160° (J3) — límites
+      verificados contra TRES fuentes oficiales independientes (manual de
+      usuario, manual de hardware, página de producto), coinciden con la
+      URDF local. Validación de velocidad/salto entre waypoints
+      consecutivos sigue sin resolver (más compleja, ver Vikunja #114).
+- [x] Checklist físico/de red antes del primer movimiento real (07/09): IP
+      real confirmada (`192.168.5.1`, no el `192.168.1.100` de relleno),
+      los 2 puertos TCP (29999, 30004) accesibles, procedimiento de e-stop
+      probado — un incidente real durante las pruebas, no solo teórico
+      (ver Vikunja #110), zona despejada y movimientos pequeños (3-6cm)
+      para las primeras pruebas.
+- [x] Primera validación real end-to-end (07/09): el sistema resolvió una
+      IK real con PoE (subir/bajar el TCP unos centímetros, con y sin
+      girar joint6) y la ejecutó con éxito en el CR5 físico, a través de
+      TODO el stack (Commander → ControlSession → controller_node →
+      robot_node → Cr5RealRobotAdapter → CR5). Posición final coincidió
+      EXACTAMENTE con la predicción de PoE. Objetivo de cierre de este
+      bloque, cumplido — varios hallazgos reales por el camino (corte de
+      red físico, incidente de e-stop, proceso zombie en
+      `ControlSession.stop()`, `MovJ` sin `cp` vibrando, cierre de sesión
+      prematuro respecto al robot real, error "-7 script pausado" resuelto
+      con un power-cycle del controlador): detalle completo en Vikunja
+      #110, #116, #117, #118.
 
 - [ ] **Propuesta (03/09, sin diseñar todavía — ver Vikunja):** modularizar
       la definición de canales ROS2 (topics, QoS, tipo de mensaje, quién
@@ -207,12 +216,15 @@ Bloque 0 #20/#110/#111/#112/#113):**
       o puede sobrevivirla? Investigación previa al pseudo-perceptor, no
       implementación -- responderla primero condiciona cómo se cablea lo
       demás.
-- [ ] **Pseudo-perceptor** (paso previo, más simple, a "ground truth de
+- [x] **Pseudo-perceptor** (paso previo, más simple, a "ground truth de
       CoppeliaSim" de abajo): un `PerceptionPort` que, a diferencia de
       `StaticPerceptionAdapter` (fijo desde construcción), permita
       "inyectar" eventos con el tiempo — un nuevo obstáculo "detectado", un
       "objetivo" nuevo a seguir — sin cámara ni visión real todavía,
-      puramente programático. Primera fase: procesado desde `Commander` (o
+      puramente programático. Implementado (`PseudoPerceptionAdapter`,
+      `perception_node/adapters/`) y mergeado desde la rama
+      `experimento/pseudo-perceptor` (`f29bd55`) — casilla sin marcar hasta
+      ahora pese a estar hecho. Primera fase: procesado desde `Commander` (o
       un demo que haga sus veces) — cuando llega un evento nuevo, se
       actualiza la `Scene` y se manda una orden en consecuencia (recalcular
       con `WholeBodyObstacleAvoidingPlanningAdapter`/

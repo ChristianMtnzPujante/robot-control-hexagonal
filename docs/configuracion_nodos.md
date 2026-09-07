@@ -78,6 +78,8 @@ Adaptador de `RobotConnectorPort` — ejecuta `joint_command`, reporta
 | `state_publish_period_seconds` | double | `0.05` | `0.01–5.0` | Cada cuánto se publica `joint_states`. |
 | `tip_name` | string | `""` (vacío) | — | Nombre del dummy "tip" en la escena CoppeliaSim, solo decorativo (trail de waypoints). Vacío lo desactiva. |
 | `cr5_host` | string | `192.168.1.100` | — | IP del controlador del CR5 físico, solo usada si `robot_target="real"`. Los puertos TCP (29999/30004) sí son constantes del protocolo, no configuración (ver `adapters/_cr5_protocol.py`). |
+| `cr5_movj_cp` | int | `50` | `0–100` | `cp` (suavizado) del `MovJ` que manda `Cr5RealRobotAdapter`, solo si `robot_target="real"`. Preferencia de ajuste de movimiento, no dato de seguridad. |
+| `cr5_joint_limits_degrees` | double[6] | `[360,360,160,360,360,360]` | — | Límite articular EFECTIVO por joint (J1..J6), solo si `robot_target="real"`. El default es el límite de FÁBRICA real del CR5 (verificado contra tres fuentes oficiales) — pedir un valor MAYOR no tiene efecto: `Cr5RealRobotAdapter` toma el mínimo entre esto y la fábrica, joint a joint, así que solo puede ESTRECHAR el margen (p. ej. para una sesión más cauta), nunca ampliarlo por encima del límite mecánico real. |
 | `scene_path` | string | `""` (vacío) | — | Ruta a un `.ttt` a cargar y poner en play al arrancar. Vacío asume que ya hay una escena abierta. |
 | `zmq_port` | int | `23000` | — | Puerto ZMQ de la instancia de CoppeliaSim a la que conectar (varias instancias = varios puertos, ver `commander_demo_two_sessions`). |
 

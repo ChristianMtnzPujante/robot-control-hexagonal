@@ -285,6 +285,54 @@ def test_set_joints_rejects_a_wide_range_joint_beyond_360_degrees(fake_cr5):
         adapter.close()
 
 
+def test_joint_limits_degrees_override_can_tighten_the_factory_limit(fake_cr5):
+    # joint1 permite ±360° de fábrica, pero aquí se pide un margen más
+    # cauto de ±90° -- 120° respeta la fábrica pero NO el override.
+    adapter, commands_received = fake_cr5(
+        _command_recording, [0.0] * 6, joint_limits_degrees=[90.0, 360.0, 160.0, 360.0, 360.0, 360.0]
+    )
+    try:
+        positions = [
+            JointPosition(name, math.radians(120.0 if name == "joint1" else 0.0))
+            for name in _JOINT_NAMES
+        ]
+        configuration = JointConfiguration.create(positions).value
+        with pytest.raises(Cr5ProtocolError, match="joint1"):
+            adapter.set_joints(configuration)
+        assert commands_received == []
+    finally:
+        adapter.close()
+
+
+def test_joint_limits_degrees_override_cannot_widen_the_factory_limit(fake_cr5):
+    # Pedir 999° de margen para joint3 (límite de fábrica real: 160°) no
+    # tiene efecto -- el mínimo entre lo pedido y la fábrica sigue siendo
+    # 160°, así que 161° se sigue rechazando igual que sin override.
+    adapter, commands_received = fake_cr5(
+        _command_recording, [0.0] * 6, joint_limits_degrees=[360.0, 360.0, 999.0, 360.0, 360.0, 360.0]
+    )
+    try:
+        positions = [
+            JointPosition(name, math.radians(161.0 if name == "joint3" else 0.0))
+            for name in _JOINT_NAMES
+        ]
+        configuration = JointConfiguration.create(positions).value
+        with pytest.raises(Cr5ProtocolError, match="joint3"):
+            adapter.set_joints(configuration)
+        assert commands_received == []
+    finally:
+        adapter.close()
+
+
+def test_joint_limits_degrees_override_rejects_the_wrong_length():
+    with pytest.raises(ValueError):
+        Cr5RealRobotAdapter(
+            "127.0.0.1",
+            joint_names=_JOINT_NAMES,
+            joint_limits_degrees=[360.0, 360.0],
+        )
+
+
 def test_get_current_configuration_converts_degrees_to_radians(fake_cr5):
     angles_deg = [10.0, -20.0, 30.0, 0.0, 90.0, -45.0]
     adapter, _ = fake_cr5(_command_recording, angles_deg)

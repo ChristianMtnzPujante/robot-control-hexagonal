@@ -58,6 +58,8 @@ class Commander(Node):
         base_link: str = "",
         tip_link: str = "",
         cr5_host: str = "",
+        cr5_movj_cp: Optional[int] = None,
+        cr5_joint_limits_degrees: Optional[List[float]] = None,
         naive_test_amplitude_radians: Optional[float] = None,
         naive_test_steps: Optional[int] = None,
     ) -> ControlSession:
@@ -75,6 +77,8 @@ class Commander(Node):
             base_link=base_link,
             tip_link=tip_link,
             cr5_host=cr5_host,
+            cr5_movj_cp=cr5_movj_cp,
+            cr5_joint_limits_degrees=cr5_joint_limits_degrees,
             naive_test_amplitude_radians=naive_test_amplitude_radians,
             naive_test_steps=naive_test_steps,
         )

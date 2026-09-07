@@ -37,6 +37,8 @@ class ControlSession:
         base_link: str = "",
         tip_link: str = "",
         cr5_host: str = "",
+        cr5_movj_cp: Optional[int] = None,
+        cr5_joint_limits_degrees: Optional[List[float]] = None,
         naive_test_amplitude_radians: Optional[float] = None,
         naive_test_steps: Optional[int] = None,
     ):
@@ -71,6 +73,12 @@ class ControlSession:
         # de siempre en simulación) -- solo se pasan por -p si se piden
         # explícitamente, igual que tip_name/scene_path más abajo.
         self._cr5_host = cr5_host
+        self._cr5_movj_cp = cr5_movj_cp
+        # Igual que joint_limits_degrees en Cr5RealRobotAdapter: solo puede
+        # ESTRECHAR el límite de fábrica, nunca ampliarlo -- ver su propio
+        # docstring. None conserva el default del YAML (el límite de
+        # fábrica, sin recorte).
+        self._cr5_joint_limits_degrees = cr5_joint_limits_degrees
         self._naive_test_amplitude_radians = naive_test_amplitude_radians
         self._naive_test_steps = naive_test_steps
         self._robot_process: Optional[subprocess.Popen] = None
@@ -136,6 +144,11 @@ class ControlSession:
             controller_args += ["-p", f"tip_link:={self._tip_link}"]
         if self._cr5_host:
             robot_args += ["-p", f"cr5_host:={self._cr5_host}"]
+        if self._cr5_movj_cp is not None:
+            robot_args += ["-p", f"cr5_movj_cp:={self._cr5_movj_cp}"]
+        if self._cr5_joint_limits_degrees is not None:
+            limits_yaml = "[" + ",".join(str(v) for v in self._cr5_joint_limits_degrees) + "]"
+            robot_args += ["-p", f"cr5_joint_limits_degrees:={limits_yaml}"]
         if self._naive_test_amplitude_radians is not None:
             controller_args += [
                 "-p", f"naive_test_amplitude_radians:={self._naive_test_amplitude_radians}"

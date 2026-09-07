@@ -7,7 +7,7 @@ dos, sin recompilar nada.
 
 from __future__ import annotations
 
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Sequence
 
 from geometry_msgs.msg import Pose as PoseMsg
 from rclpy.node import Node
@@ -30,25 +30,32 @@ _CONFIG_PATH = package_config_path("robot_node", "robot_node.yaml")
 
 # Registro robot_target -> factoría, en vez de un if/elif en _build_adapter:
 # añadir un robot nuevo es añadir una entrada aquí, no una rama nueva (ver
-# ROADMAP.md, Bloque 9). Todas las factorías reciben las mismas cinco cosas
-# que hoy expone robot_node por parámetro ROS2 -- la que no las necesite
-# simplemente las ignora (Cr5RealRobotAdapter usa joint_names y cr5_host,
-# pero no tip_name/scene_path/zmq_port). Ese es justo el límite del
-# patrón: quita el if/elif, pero NO resuelve que un robot real pueda
-# necesitar datos de conexión que estas cinco no cubran -- cr5_host
-# default="192.168.1.100" sigue sin confirmar contra el CR5 físico (ver
-# checklist de Bloque 0, #112).
+# ROADMAP.md, Bloque 9). Todas las factorías reciben las mismas SIETE
+# cosas que hoy expone robot_node por parámetro ROS2 -- la que no las
+# necesite simplemente las ignora (Cr5RealRobotAdapter usa joint_names/
+# cr5_host/cr5_movj_cp/cr5_joint_limits_degrees, pero no
+# tip_name/scene_path/zmq_port). Ese es justo el límite del patrón: quita
+# el if/elif, pero NO resuelve que un robot real pueda necesitar datos de
+# conexión/ajuste que estas siete no cubran.
 _TARGETS: Dict[
     str,
-    Callable[[List[str], Optional[str], Optional[str], int, str], RobotConnectorPort],
+    Callable[
+        [List[str], Optional[str], Optional[str], int, str, int, Sequence[float]],
+        RobotConnectorPort,
+    ],
 ] = {
-    "simulado": lambda joint_names, tip_name, scene_path, zmq_port, cr5_host: (
+    "simulado": lambda joint_names, tip_name, scene_path, zmq_port, cr5_host, cr5_movj_cp, cr5_joint_limits_degrees: (
         CoppeliaSimRobotAdapter(
             joint_names, tip_name=tip_name, scene_path=scene_path, zmq_port=zmq_port
         )
     ),
-    "real": lambda joint_names, tip_name, scene_path, zmq_port, cr5_host: (
-        Cr5RealRobotAdapter(host=cr5_host, joint_names=joint_names)
+    "real": lambda joint_names, tip_name, scene_path, zmq_port, cr5_host, cr5_movj_cp, cr5_joint_limits_degrees: (
+        Cr5RealRobotAdapter(
+            host=cr5_host,
+            joint_names=joint_names,
+            movj_cp=cr5_movj_cp,
+            joint_limits_degrees=list(cr5_joint_limits_degrees),
+        )
     ),
 }
 
@@ -73,9 +80,20 @@ class RobotNode(Node):
         scene_path = self.get_parameter("scene_path").value or None
         zmq_port = int(self.get_parameter("zmq_port").value)
         cr5_host = self.get_parameter("cr5_host").value
+        cr5_movj_cp = int(self.get_parameter("cr5_movj_cp").value)
+        cr5_joint_limits_degrees = list(
+            self.get_parameter("cr5_joint_limits_degrees").value
+        )
 
         self._robot_controller = self._build_adapter(
-            target, joint_names, tip_name, scene_path, zmq_port, cr5_host
+            target,
+            joint_names,
+            tip_name,
+            scene_path,
+            zmq_port,
+            cr5_host,
+            cr5_movj_cp,
+            cr5_joint_limits_degrees,
         )
 
         self.get_logger().info(
@@ -83,12 +101,28 @@ class RobotNode(Node):
         )
 
     def _build_adapter(
-        self, target: str, joint_names, tip_name, scene_path, zmq_port, cr5_host
+        self,
+        target: str,
+        joint_names,
+        tip_name,
+        scene_path,
+        zmq_port,
+        cr5_host,
+        cr5_movj_cp,
+        cr5_joint_limits_degrees,
     ) -> RobotConnectorPort:
         factory = _TARGETS.get(target)
         if factory is None:
             raise ValueError(f'robot_target desconocido: "{target}"')
-        return factory(joint_names, tip_name, scene_path, zmq_port, cr5_host)
+        return factory(
+            joint_names,
+            tip_name,
+            scene_path,
+            zmq_port,
+            cr5_host,
+            cr5_movj_cp,
+            cr5_joint_limits_degrees,
+        )
 
     def _on_joint_command(self, msg: JointState) -> None:
         configuration = to_joint_configuration(msg)
