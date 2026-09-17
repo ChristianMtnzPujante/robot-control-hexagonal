@@ -32,7 +32,7 @@ sin conocer la escena ni evitar nada.
 |---|---|
 | [[PoeKinematicsAdapter]] | Real — Product of Exponentials |
 | [[CoppeliaSimIkKinematicsAdapter]] | Real — delega en `simIK` del propio simulador |
-| `GaKinematicsAdapter` | Stub (`NotImplementedError`) — pendiente de CGA/`gafro`, Bloque 1 |
+| [[GaKinematicsAdapter]] | Real — CGA vía `gafro`/`pygafro` (rueda de PyPI), desde el 17/09; FK/IK verificadas contra PoE y CoppeliaSim |
 | `DhKinematicsAdapter` | Stub (`NotImplementedError`) — pendiente de tabla DH, Bloque 9 |
 | `NaiveTestKinematicsAdapter` / `StraightLineKinematicsAdapter` | Dobles de test, solo cablean el flujo |
 

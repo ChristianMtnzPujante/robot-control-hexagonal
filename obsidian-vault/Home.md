@@ -15,8 +15,10 @@ generación de código libre).
 Este vault es también mi primer proyecto real en Obsidian — si es la primera
 vez que lo abres, empieza por [[Cómo usar este vault (Obsidian)]].
 
-> [!info] Estado en una frase (07/09/2026)
-> Cinemática PoE real, `Scene`/percepción real (fichero + pseudo-perceptor) y
+> [!info] Estado en una frase (17/09/2026)
+> Dos cinemáticas reales e intercambiables: PoE y **CGA/gafro**
+> ([[GaKinematicsAdapter]], desde el 17/09, comparadas en CoppeliaSim con
+> resultados idénticos en pose). `Scene`/percepción real (fichero + pseudo-perceptor) y
 > generalización a robot arbitrario (URDF) ya funcionan. El protocolo TCP/IP
 > real contra el CR5 físico (Bloque 0, commit `e009321`) **ya se ha probado
 > con éxito contra el robot físico de verdad** — primera IK real (PoE)

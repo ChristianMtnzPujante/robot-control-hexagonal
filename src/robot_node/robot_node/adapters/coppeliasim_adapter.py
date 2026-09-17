@@ -50,6 +50,7 @@ class CoppeliaSimRobotAdapter:
         self._tip_handle = self._sim.getObject(f"/{tip_name}") if tip_name else None
         self._goal_dummy_handle: Optional[int] = None
         self._waypoint_count = 0
+        self._trail_color = list(_TRAIL_COLOR)
 
     def _load_scene_and_play(self, scene_path: str) -> None:
         # loadScene exige la simulación parada -- stopSimulation es
@@ -85,6 +86,23 @@ class CoppeliaSimRobotAdapter:
         # existiera el método. Existe solo para cumplir RobotConnectorPort
         # (Bloque 0 #116), igual que Cr5RealRobotAdapter.close().
         pass
+
+    def tip_position(self) -> Optional[List[float]]:
+        """Posición [x, y, z] (marco mundo) del objeto `tip_name` tal como
+        la calcula el PROPIO CoppeliaSim para la configuración articular
+        actual -- la 'verdad de terreno' del modelo URDF importado, útil
+        para contrastar la FK de un `KinematicsPort` (ver
+        `commander/cr5_poe_vs_gafro_sim_demo.py`). Lectura pura, no forma
+        parte de `RobotConnectorPort`; `None` si no se dio `tip_name`."""
+        if self._tip_handle is None:
+            return None
+        return list(self._sim.getObjectPosition(self._tip_handle, -1))
+
+    def set_trail_color(self, rgb: List[float]) -> None:
+        """Color [r, g, b] de los dummies de rastro que deja `set_joints`
+        a partir de ahora -- cosmético, para distinguir en la misma escena
+        dos trayectorias (p. ej. PoE frente a GA). Por defecto, azul."""
+        self._trail_color = list(rgb) * 4
 
     def mark_goal(self, goal: Pose) -> None:
         if self._goal_dummy_handle is None:
@@ -132,7 +150,7 @@ class CoppeliaSimRobotAdapter:
         if self._tip_handle is None:
             return
         position = self._sim.getObjectPosition(self._tip_handle, -1)
-        handle = self._sim.createDummy(0.015, _TRAIL_COLOR)
+        handle = self._sim.createDummy(0.015, self._trail_color)
         self._waypoint_count += 1
         self._sim.setObjectAlias(handle, f"waypoint_{self._waypoint_count}")
         self._sim.setObjectPosition(handle, -1, position)

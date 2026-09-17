@@ -329,6 +329,28 @@ robot?" de "¿funciona el resto del stack?". Precursores de
   interactivo, nunca automatizado (necesita a alguien delante del botón
   de emergencia confirmando cada paso).
 
+## PoE frente a GA (CGA/gafro) en CoppeliaSim (Bloque 1, 17/09)
+
+- **`cr5_poe_vs_gafro_sim_demo.py`** (`commander`) — resuelve el mismo
+  arco de `cr5_semicircle_sim_demo.py` con [[PoeKinematicsAdapter]] y
+  [[GaKinematicsAdapter]] desde la home, anima ambas soluciones (rastro
+  azul = PoE, verde = GA) y contrasta cada waypoint con la posición de
+  `Link6_visual` que calcula el propio CoppeliaSim (verdad de terreno del
+  URDF importado). Después, FK de los dos contra el simulador en 200
+  posturas aleatorias. Escribe `docs/comparativa_poe_vs_gafro_coppeliasim.md`
+  con la lectura generada a partir de los números. Usa
+  `tip_position()`/`set_trail_color()` de [[CoppeliaSimRobotAdapter]] y
+  `last_iteration_count` de los dos adaptadores (diagnóstico, no parte de
+  [[KinematicsPort]]). Resultado y hallazgo (self-motion con `joint5=0`):
+  en [[GaKinematicsAdapter]].
+- **`cr5_poe_vs_gafro_simple_demo.py`** (`commander`) — la versión
+  mínima, para ver las dos trayectorias a simple vista: (1) bajar 5 cm
+  desde la home (muñeca singular: misma pose, articulaciones distintas,
+  hasta ~2°); (2) desde una postura doblada (`joint5=40°`), 8 cm en -X y
+  5 cm en -Z (solución aislada: misma configuración articular, diferencia
+  0,01°). Error real de la punta en CoppeliaSim < 0,01 mm en los cuatro
+  casos; GA ~1,5× más rápida por IK. Escena limpia al arrancar.
+
 ## Ver también
 
 - [[Evitación de Colisiones]]

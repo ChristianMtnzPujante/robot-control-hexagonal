@@ -12,6 +12,11 @@ entrada nueva por cada día de trabajo real, no por cada mensaje.
 
 Más reciente primero:
 
+- [[2026-09-17]] — `GaKinematicsAdapter` real sobre `pygafro` (F1.2 de la
+  tesis) tras cerrar la prueba de viabilidad F1.1 por la mañana: no hay
+  nada que compilar, es una rueda de PyPI. Comparativa PoE vs GA en
+  CoppeliaSim: misma pose, GA más rápida, y las dos IK reparten distinto la
+  redundancia de muñeca.
 - [[2026-09-14]] — gesto de saludo con el CR5 (sim verificado, físico
   pendiente): arco de lado a lado con la herramienta inclinada hacia
   arriba, tras una corrección del usuario sobre una primera versión recta

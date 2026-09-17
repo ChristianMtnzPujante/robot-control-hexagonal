@@ -269,6 +269,37 @@ tomes una decisión de este tipo — ver [[Cómo usar este vault (Obsidian)]].
 > donde es exacta (articulaciones) en vez de en el espacio donde es
 > ambigua (cartesiano). Ver [[PoeKinematicsAdapter]].
 
+> [!tip] (17/09) GA se implementa sobre la rueda de PyPI de `pygafro`, con el mismo Newton-Raphson que PoE
+> La prueba de viabilidad F1.1 (`~/Desktop/doctorado/informe_F1_1_viabilidad_pygafro.md`)
+> cambió la premisa que tenía parado a `GaKinematicsAdapter` desde agosto:
+> no hay nada que compilar. `pip install pygafro` (1.3.5) sobre el Python
+> del sistema basta; `gafro` C++ y `pygafro` desde fuente también compilan
+> (26 min), y `gafro_ros2` solo con `sackmesser` fijado a 05/2025 y un
+> parche de una línea — pero nada de eso hace falta para el adaptador. Se
+> importa de forma perezosa para que `controller_node` no dependa de la
+> rueda salvo con `strategy="ga"`.
+>
+> Decisiones de diseño del adaptador ([[GaKinematicsAdapter]]):
+> (1) el `System` de gafro se construye desde el MISMO `RobotDescription`
+> que PoE (mismos datos, dos álgebras — es la comparación que pide H1.1 de
+> la tesis), con una `KinematicChain` explícita en vez de `Manipulator_N`
+> (limitado a N≤10); (2) la IK copia el esquema, parámetros y tolerancias
+> de PoE para que las dos estrategias sean intercambiables y comparables,
+> cambiando solo el álgebra (error = log del motor, Jacobiano geométrico de
+> gafro, misma base de bivectores); (3) la parada se decide sobre el error
+> geométrico real, no sobre el logaritmo, porque el log del motor en gafro
+> no es el twist de se(3) en su parte traslacional; (4) las convenciones de
+> pygafro no documentadas se fijaron empíricamente y quedan escritas en el
+> docstring: eje URDF (x,y,z) → `RotorGenerator([z,-y,x])`, cuaterniones
+> [w,x,y,z], `Motor(T,R)` = T·R, generadores en base [e12,e13,e23,e1i,e2i,e3i].
+>
+> Resultado (`docs/comparativa_poe_vs_gafro_coppeliasim.md`): misma pose
+> que PoE en todo (error vs CoppeliaSim < 1 µm en FK, < 0,1 mm en IK),
+> IK ~3× y FK ~4,6× más rápidas, y un recordatorio: en la singularidad de
+> muñeca (`joint5=0`) las dos IK reparten la redundancia de forma distinta
+> — misma pose, soluciones articulares distintas — lo que refuerza la
+> decisión del 14/09 de anclar la rama en espacio de articulaciones.
+
 ## Ver también
 
 - [[Estado del Roadmap]]

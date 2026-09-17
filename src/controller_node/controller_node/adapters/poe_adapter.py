@@ -24,16 +24,17 @@ TEMPORAL que compara cualquier `RobotDescription` que diga ser un CR5 contra
 `_DEFAULT_CR5_DESCRIPTION` -- borrar cuando esta ruta genérica lleve tiempo
 validada.
 
-Ver docs/algebra_geometrica_conforme.md §4: estos mismos twists son la
-entrada que necesitaría `GaKinematicsAdapter` -- no hace falta
-re-derivarlos aparte cuando se implemente; solo cambia el álgebra con la
-que se interpretan los mismos datos crudos de `RobotDescription`.
+Ver docs/algebra_geometrica_conforme.md §4: `GaKinematicsAdapter`
+(ga_adapter.py, real desde el 17/09/2026) parte del MISMO `RobotDescription`
+y construye con él un `pygafro.System` -- no re-deriva nada aparte; solo
+cambia el álgebra con la que se interpretan los mismos datos crudos. La
+comparación entre ambos vive en docs/comparativa_poe_vs_gafro_coppeliasim.md.
 """
 
 from __future__ import annotations
 
 import math
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 
@@ -380,6 +381,10 @@ class PoeKinematicsAdapter:
             robot_description
         )
         self._home_pose = self._joint_home_poses[-1]
+        # Nº de iteraciones de la última IK -- solo diagnóstico (demos de
+        # comparación PoE/GA, ver cr5_poe_vs_gafro_sim_demo.py), no forma
+        # parte de KinematicsPort. Mismo atributo en GaKinematicsAdapter.
+        self.last_iteration_count: Optional[int] = None
 
     def compute_trajectory(
         self, goal: Pose, current_configuration: JointConfiguration
@@ -431,7 +436,7 @@ class PoeKinematicsAdapter:
             [current_configuration.angle_of(name) for name in self._joint_names]
         )
 
-        for _ in range(self._max_iterations):
+        for iteration in range(self._max_iterations):
             current_transform = _forward_kinematics(
                 self._screw_axes, self._home_pose, thetas
             )
@@ -443,6 +448,7 @@ class PoeKinematicsAdapter:
                 np.linalg.norm(error_space[:3]) < self._orientation_tolerance
                 and np.linalg.norm(error_space[3:]) < self._position_tolerance
             ):
+                self.last_iteration_count = iteration
                 positions = [
                     JointPosition(name, float(theta))
                     for name, theta in zip(self._joint_names, thetas)
@@ -455,6 +461,7 @@ class PoeKinematicsAdapter:
             )
             thetas = thetas + step
 
+        self.last_iteration_count = self._max_iterations
         raise RuntimeError(
             "PoeKinematicsAdapter: Newton-Raphson no convergió en "
             f"{self._max_iterations} iteraciones para "

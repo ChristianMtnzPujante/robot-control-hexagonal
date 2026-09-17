@@ -35,6 +35,8 @@ setup(
             'cr5_semicircle_sim_demo = commander.cr5_semicircle_sim_demo:main',
             'cr5_circle_sim_demo = commander.cr5_circle_sim_demo:main',
             'cr5_wave_sim_demo = commander.cr5_wave_sim_demo:main',
+            'cr5_poe_vs_gafro_sim_demo = commander.cr5_poe_vs_gafro_sim_demo:main',
+            'cr5_poe_vs_gafro_simple_demo = commander.cr5_poe_vs_gafro_simple_demo:main',
         ],
     },
 )

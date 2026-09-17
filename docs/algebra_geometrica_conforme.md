@@ -43,7 +43,7 @@ en el infinito, `p²` = `p·p`).
 `geometry_kernel/primitives.py` hoy usa coordenadas cartesianas planas
 (`Point(x,y,z)`, `Plane(point, normal)`, `SphereObstacle(center, radius)`),
 documentado explícitamente como provisional. Esto es lo que cambiaría si se
-implementa CGA de verdad (vía `gafro`/`pygafro`, cuando esté compilado):
+implementa CGA de verdad (vía `gafro`/`pygafro` -- ya real en `ga_adapter.py` desde el 17/09/2026):
 
 | Primitiva hoy | Forma en CGA (vector de `R^{4,1}`) | Condición que lo caracteriza |
 |---|---|---|
@@ -193,11 +193,12 @@ concreto para la primera versión de `PerceptionPort` en simulación
 
 ## 8. Lo que esto NO resuelve todavía
 
-- Esto es la matemática, no la implementación: `pygafro`/`gafro_ros` siguen
-  sin compilar para el CR5, que sigue siendo el bloqueo real de
-  `GaKinematicsAdapter` (ver su propio TODO). Esta nota reduce el riesgo de
-  no entender el álgebra cuando llegue ese momento, no sustituye el trabajo
-  de integración.
+- ~~Esto es la matemática, no la implementación: `pygafro`/`gafro_ros` siguen
+  sin compilar para el CR5~~ **Resuelto el 17/09/2026**: `pygafro` es una
+  rueda de PyPI (no había nada que compilar) y `GaKinematicsAdapter` ya
+  implementa FK/IK con ella (ver su docstring y
+  `docs/comparativa_poe_vs_gafro_coppeliasim.md`). Esta nota sigue siendo
+  la referencia matemática; la integración vive en `ga_adapter.py`.
 - El ejemplo de IK geométrica del libro es de 2 eslabones; extenderlo a los
   6 ejes reales del CR5 es trabajo adicional de verdad, aunque la técnica
   (esferas + ratios de líneas) se generaliza razonablemente bien a brazos

@@ -13,10 +13,11 @@ CoppeliaSim, y en el futuro real), sobre ROS2 Humble.
   CR5 físico (pendiente — el driver oficial de Dobot es ROS1, no ROS2).
 - **`KinematicsPort`** (`shared_kernel/ports.py`) — el "Nodo Controlador": cinemática
   inversa pura, de un objetivo cartesiano (`Pose`) a una `Trajectory` alcanzable,
-  sin conocer la escena ni evitar nada. Adaptadores: PoE/Explicit, GA/gafro, DH
-  numérico (los tres pendientes de implementar la matemática real) y
-  `naive_test`/`straight_line` (dobles de pruebas, solo sirven para probar el
-  cableado).
+  sin conocer la escena ni evitar nada. Adaptadores: PoE/Explicit y GA/gafro
+  (los dos reales e intercambiables -- GA sobre la rueda de PyPI `pygafro`,
+  comparados en `docs/comparativa_poe_vs_gafro_coppeliasim.md`), DH numérico
+  (pendiente) y `naive_test`/`straight_line` (dobles de pruebas, solo sirven
+  para probar el cableado).
 - **`PlanningPort`** (`shared_kernel/ports.py`) — como `KinematicsPort`, pero
   recibe también una `Scene` (obstáculos, planos) y debe evitarlos. Pensado
   para CHOMP/RRT; sin ningún adaptador todavía.

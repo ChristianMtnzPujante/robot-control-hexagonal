@@ -221,13 +221,34 @@ Bloque 0 #20/#110/#111/#112/#113):**
 - [ ] Leer el paper de Löw/Abbet/Calinon que sustenta `gafro` (ya
       referenciado en el propio código) — entender por qué CGA simplifica
       cinemática de cadenas seriales frente a DH.
-- [ ] Evaluar `pygafro`/`gafro_ros`: qué API exponen realmente, qué falta
-      compilar, si merece la pena para el CR5 concreto.
-- [ ] Decidir qué hacer con `ga_adapter.py`: invertir ya en compilar
+- [x] **(17/09)** Evaluar `pygafro`/`gafro_ros`: qué API exponen realmente, qué falta
+      compilar, si merece la pena para el CR5 concreto. *Hecho (F1.1, informe en
+      `~/Desktop/doctorado/informe_F1_1_viabilidad_pygafro.md`, workspace
+      `~/gafro_ws`): `pygafro` de PyPI (1.3.5) no necesita compilarse y da la
+      FK del CR5 idéntica a `poe_adapter.py` (error <1e-14, 60× más rápido);
+      `gafro_ros` es ROS1; `gafro_ros2` compila contra Humble fijando
+      `sackmesser` a 05/2025 + parche de 1 línea, y su `convert_urdf` sí
+      convierte el URDF del CR5 a YAML cargable por `pygafro`.*
+- [x] **(17/09)** Decidir qué hacer con `ga_adapter.py`: invertir ya en compilar
       `pygafro`, o aparcarlo explícitamente detrás de PoE/DH — no bloquea
       nada (la cinemática real ya se resolvió en Bloque 0 con PoE), es solo
       cuándo invertir en la dependencia externa. *(movido desde Bloque 0 el
-      04/09 — GA se pospone, no bloquea la instanciación CR5)*
+      04/09 — GA se pospone, no bloquea la instanciación CR5)* *Decidido:
+      invertir ya (F1.2) — la dependencia es una rueda de PyPI, no una
+      compilación; `ga_adapter.py` se implementará sobre `pygafro.System`
+      construido desde `RobotDescription` (ver `build_cr5_system()` en
+      `~/gafro_ws/f1_1/cr5_fk_check.py`).*
+- [x] **(17/09)** `GaKinematicsAdapter` real (F1.2): `pygafro.System`
+      construido desde el mismo `RobotDescription` que PoE; FK, `link_poses`
+      e IK (Newton-Raphson amortiguado sobre el log del motor, mismo esquema
+      y tolerancias que PoE). 8 tests cruzados contra PoE. Comparativa en
+      CoppeliaSim (`cr5_poe_vs_gafro_sim_demo.py` →
+      `docs/comparativa_poe_vs_gafro_coppeliasim.md`): misma pose (FK vs
+      CoppeliaSim < 1 µm, IK < 0,1 mm), IK ~3× y FK ~4,6× más rápidas en
+      GA. *Hallazgo:* con `joint5=0` (todo el arco) joint2/3/4/6 son
+      paralelos → familia continua de soluciones; las dos IK dan soluciones
+      articulares distintas (hasta 274 mrad) para la misma pose. Refuerza
+      lo del 14/09: anclar la rama en articulaciones, no delegar en la IK.
 - [x] Documento corto (para ti, no para nadie más) que traduzca: "plano de
       la mesa" → primitiva CGA, "objeto a evitar" → esfera/región CGA.
       Esto es lo que necesitará el Bloque 3. Ver
