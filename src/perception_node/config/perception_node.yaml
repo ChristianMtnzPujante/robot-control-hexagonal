@@ -24,6 +24,22 @@ publishers:
     message_type: std_msgs/msg/String
     qos: SCENE_QOS
 
+# Canal de inyección de eventos para perception_target="pseudo" (ver
+# PseudoPerceptionAdapter) -- quien quiera "reportar" un obstáculo/objeto
+# desde fuera de este proceso publica aquí en vez de llamar a
+# report_obstacle/report_object directamente en Python. GOAL_QOS (no
+# SCENE_QOS): un reporte es una orden puntual, no el estado retenido de la
+# escena -- mismo problema de arranque que <ns>/goal (ver ros2_kit/qos.py).
+subscriptions:
+  - topic: /perception/report_obstacle
+    message_type: std_msgs/msg/String
+    qos: GOAL_QOS
+    callback: _on_report_obstacle
+  - topic: /perception/report_object
+    message_type: std_msgs/msg/String
+    qos: GOAL_QOS
+    callback: _on_report_object
+
 timers:
   - period_parameter: scene_publish_period_seconds
     callback: _publish_scene

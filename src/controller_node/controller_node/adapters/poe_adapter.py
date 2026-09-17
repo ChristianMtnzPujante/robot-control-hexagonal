@@ -392,11 +392,11 @@ class PoeKinematicsAdapter:
     def forward_kinematics(self, configuration: JointConfiguration) -> Pose:
         """Cinemática directa: de una `JointConfiguration` a la `Pose`
         cartesiana del tip, relativa a `base_link` (mismo frame que exige
-        `compute_trajectory` para `goal` -- ver two_sessions_demo.py). No es
-        parte de `KinematicsPort` (ese puerto solo exige IK) -- lo usan
-        adaptadores de `PlanningPort` que necesitan saber DÓNDE está el
-        robot ahora en cartesiano antes de decidir por dónde desviarse
-        (ver `obstacle_avoiding_planning_adapter.py`)."""
+        `compute_trajectory` para `goal` -- ver two_sessions_demo.py). Parte
+        formal de `KinematicsPort` desde el 08/09 -- lo usan adaptadores de
+        `PlanningPort` que necesitan saber DÓNDE está el robot ahora en
+        cartesiano antes de decidir por dónde desviarse (ver
+        `obstacle_avoiding_planning_adapter.py`)."""
         thetas = np.array(
             [configuration.angle_of(name) for name in self._joint_names]
         )

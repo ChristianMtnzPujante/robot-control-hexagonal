@@ -5,9 +5,10 @@
 TIP), este también comprueba que NINGÚN eslabón del robot -- el segmento
 entre cada par de articulaciones consecutivas, y entre `base_link` y la
 primera -- invada ningún `SphereObstacle`, en NINGÚN waypoint de la
-trayectoria resultante. Usa `KinematicsPort.link_poses` (hoy solo
-`PoeKinematicsAdapter` lo ofrece) para saber dónde está CADA articulación
-en cada paso, no solo el tip.
+trayectoria resultante. Usa `KinematicsPort.link_poses` (parte formal del
+puerto desde el 08/09 -- antes, `Protocol` local ad-hoc aquí mismo; ver
+`shared_kernel/ports.py`) para saber dónde está CADA articulación en cada
+paso, no solo el tip.
 
 Sigue siendo un planificador MÍNIMO, no CHOMP/RRT: no hay gradiente ni
 optimización sobre la postura completa, y solo hay un lever de control real
@@ -41,21 +42,20 @@ verdad: límites de articulación en `RobotDescription`.
 from __future__ import annotations
 
 import math
-from typing import List, Optional, Protocol, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 
-from shared_kernel import JointConfiguration, Pose, Scene, SphereObstacle, Trajectory
+from shared_kernel import (
+    JointConfiguration,
+    KinematicsPort,
+    Pose,
+    Scene,
+    SphereObstacle,
+    Trajectory,
+)
 
 from ._segment_geometry import closest_point_on_segment, detour_point, worst_intersection
-
-
-class _KinematicsPortWithLinkPoses(Protocol):
-    def compute_trajectory(
-        self, goal: Pose, current_configuration: JointConfiguration
-    ) -> Trajectory: ...
-
-    def link_poses(self, configuration: JointConfiguration) -> List[Pose]: ...
 
 
 def _within_a_full_turn(trajectory: Trajectory) -> bool:
@@ -87,7 +87,7 @@ def _body_segments(link_poses: List[Pose]) -> List[Tuple[np.ndarray, np.ndarray]
 class WholeBodyObstacleAvoidingPlanningAdapter:
     def __init__(
         self,
-        kinematics: _KinematicsPortWithLinkPoses,
+        kinematics: KinematicsPort,
         clearance: float = 0.05,
         max_detour_attempts: int = 5,
         detour_growth_factor: float = 1.5,

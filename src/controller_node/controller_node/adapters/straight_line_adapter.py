@@ -14,6 +14,7 @@ algo moverse en Coppelia. No usar como referencia física ni en producción.
 from __future__ import annotations
 
 import math
+from typing import List
 
 from shared_kernel import JointConfiguration, JointPosition, Pose, Trajectory
 
@@ -51,3 +52,23 @@ class StraightLineKinematicsAdapter:
             for i, name in enumerate(joint_names)
         ]
         return JointConfiguration.create(positions).value
+
+    def forward_kinematics(self, configuration: JointConfiguration) -> Pose:
+        # Parte formal de KinematicsPort desde el 08/09 (ver shared_kernel/
+        # ports.py). `_approximate_inverse_kinematics` es una asignación
+        # arbitraria Pose->JointConfiguration sin geometría real detrás --
+        # no existe una "inversa" que deshacer, así que no hay forma
+        # honesta de dar cinemática directa aquí (ver docstring del
+        # módulo: no usar como referencia física).
+        raise NotImplementedError(
+            "StraightLineKinematicsAdapter: no tiene un modelo geométrico "
+            "real, no implementa cinemática directa -- no lo uses con un "
+            "PlanningPort que la necesite (ver ObstacleAvoidingPlanningAdapter)."
+        )
+
+    def link_poses(self, configuration: JointConfiguration) -> List[Pose]:
+        raise NotImplementedError(
+            "StraightLineKinematicsAdapter: no tiene un modelo geométrico "
+            "real, no implementa cinemática directa -- no lo uses con un "
+            "PlanningPort que la necesite (ver WholeBodyObstacleAvoidingPlanningAdapter)."
+        )

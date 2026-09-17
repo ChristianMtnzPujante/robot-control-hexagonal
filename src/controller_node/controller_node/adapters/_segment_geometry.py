@@ -1,10 +1,11 @@
-"""Geometría de segmento-vs-esfera compartida entre los planificadores
-mínimos de evitación de esta rama (`obstacle_avoiding_planning_adapter.py`,
-que solo mira el segmento del tip, y
-`whole_body_obstacle_avoiding_planning_adapter.py`, que mira uno por cada
-eslabón del robot) -- extraído para no duplicar la misma matemática dos
-veces. Puramente numérico (`numpy`), sin depender de `shared_kernel` salvo
-por el tipo `SphereObstacle`.
+"""Geometría de segmento-vs-esfera y segmento-vs-segmento compartida entre
+los planificadores mínimos de esta rama (`obstacle_avoiding_planning_adapter.py`,
+que solo mira el segmento del tip, `whole_body_obstacle_avoiding_planning_adapter.py`,
+que mira uno por cada eslabón del robot contra obstáculos EXTERNOS, y
+`self_collision_planning_adapter.py`, que mira cada eslabón contra los
+DEMÁS eslabones del propio robot, 08/09) -- extraído para no duplicar la
+misma matemática varias veces. Puramente numérico (`numpy`), sin depender
+de `shared_kernel` salvo por el tipo `SphereObstacle`.
 
 Todas las funciones de este módulo son agnósticas del marco de referencia
 -- operan sobre los `np.ndarray` (x,y,z) que les pases, sean los que sean.
@@ -127,3 +128,73 @@ def detour_point(
     # dirección -- ni más cerca (seguiría invadiendo) ni más lejos de lo
     # necesario.
     return center + direction * required
+
+
+def closest_points_between_segments(
+    p1: np.ndarray, q1: np.ndarray, p2: np.ndarray, q2: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray]:
+    """El par de puntos más cercanos entre el segmento p1->q1 y el segmento
+    p2->q2 (uno de cada) -- algoritmo cerrado clásico (Lumelsky 1985 /
+    Ericson, *Real-Time Collision Detection* §5.1.9), sin iterar. Base de
+    `segment_segment_distance`, usada tal cual (no solo la distancia) por
+    quien necesite además DÓNDE están los puntos más próximos, no solo
+    cuánto se acercan.
+
+    Caso de uso real: autocolisión (`self_collision_planning_adapter.py`)
+    -- a diferencia de segmento-vs-esfera (obstáculo puntual/redondo), aquí
+    AMBOS lados son segmentos (dos eslabones del propio robot, cada uno
+    aproximado como una cápsula: segmento + radio)."""
+    EPSILON = 1e-12
+    d1 = q1 - p1
+    d2 = q2 - p2
+    r = p1 - p2
+    a = float(d1 @ d1)  # |d1|^2 -- longitud al cuadrado del primer segmento
+    e = float(d2 @ d2)  # |d2|^2 -- longitud al cuadrado del segundo
+    f = float(d2 @ r)
+
+    if a <= EPSILON and e <= EPSILON:
+        # Los dos segmentos son en realidad puntos (p1==q1, p2==q2).
+        return p1, p2
+    if a <= EPSILON:
+        # Solo el primero es un punto -- proyectar sobre el segundo.
+        t = float(np.clip(f / e, 0.0, 1.0))
+        return p1, p2 + t * d2
+
+    c = float(d1 @ r)
+    if e <= EPSILON:
+        # Solo el segundo es un punto -- proyectar sobre el primero.
+        s = float(np.clip(-c / a, 0.0, 1.0))
+        return p1 + s * d1, p2
+
+    b = float(d1 @ d2)
+    denom = a * e - b * b  # 0 exactamente cuando los segmentos son paralelos
+    if abs(denom) > EPSILON:
+        s = float(np.clip((b * f - c * e) / denom, 0.0, 1.0))
+    else:
+        s = 0.0  # paralelos: cualquier punto de partida en el primero vale
+    t = (b * s + f) / e
+    # t puede salirse de [0,1] con el s de arriba -- recortarlo y volver a
+    # resolver s para ESE t fijo (no basta con recortar t solo, o el par
+    # (s,t) dejaría de ser el más cercano real).
+    if t < 0.0:
+        t = 0.0
+        s = float(np.clip(-c / a, 0.0, 1.0))
+    elif t > 1.0:
+        t = 1.0
+        s = float(np.clip((b - c) / a, 0.0, 1.0))
+    return p1 + s * d1, p2 + t * d2
+
+
+def segment_segment_distance(
+    p1: np.ndarray, q1: np.ndarray, p2: np.ndarray, q2: np.ndarray
+) -> float:
+    """Distancia mínima entre el segmento p1->q1 y el segmento p2->q2. Dos
+    segmentos que comparten un extremo (dos eslabones consecutivos de un
+    mismo robot, unidos por su articulación) dan 0.0 aquí -- es tarea de
+    quien llama excluir esos pares "siempre en contacto por construcción"
+    ANTES de interpretar 0.0 como colisión real (ver
+    `self_collision_planning_adapter.py`)."""
+    closest_on_first, closest_on_second = closest_points_between_segments(
+        p1, q1, p2, q2
+    )
+    return float(np.linalg.norm(closest_on_first - closest_on_second))

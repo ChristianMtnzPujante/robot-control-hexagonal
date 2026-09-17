@@ -16,11 +16,14 @@ codo/antebrazo aunque el tip lo esquive (ver ROADMAP.md, Bloque 4:
 `whole_body_obstacle_avoiding_planning_adapter.py`, que sí mira cada
 eslabón.
 
-Requiere que el `KinematicsPort` recibido exponga también
-`forward_kinematics` (hoy solo `PoeKinematicsAdapter` lo hace) -- sin eso no
-hay forma de saber dónde está el efector en cartesiano para comprobar si el
-segmento pasa cerca del obstáculo. `NaivePlanningAdapter` no tiene esta
-limitación porque no necesita saber dónde está nada; este adaptador sí.
+Necesita `forward_kinematics` del `KinematicsPort` recibido -- parte formal
+del puerto desde el 08/09 (antes, `Protocol` local ad-hoc aquí mismo; ver
+`shared_kernel/ports.py`) -- sin eso no hay forma de saber dónde está el
+efector en cartesiano para comprobar si el segmento pasa cerca del
+obstáculo. `NaivePlanningAdapter` no tiene esta necesidad porque no
+necesita saber dónde está nada; este adaptador sí. En la práctica, un
+`KinematicsPort` todavía en fase de stub (GA/DH) lanzará `NotImplementedError`
+al llamarlo, igual que si `compute_trajectory` no convergiera.
 
 Qué TIPO de planificador es esto, con precisión (pregunta real que surgió
 analizándolo): dos ejes distintos, no uno.
@@ -43,27 +46,15 @@ analizándolo): dos ejes distintos, no uno.
 
 from __future__ import annotations
 
-from typing import Protocol
-
 import numpy as np
 
-from shared_kernel import JointConfiguration, Pose, Scene, Trajectory
+from shared_kernel import JointConfiguration, KinematicsPort, Pose, Scene, Trajectory
 
 from ._segment_geometry import detour_point, worst_intersection
 
 
-class _KinematicsPortWithForward(Protocol):
-    def compute_trajectory(
-        self, goal: Pose, current_configuration: JointConfiguration
-    ) -> Trajectory: ...
-
-    def forward_kinematics(self, configuration: JointConfiguration) -> Pose: ...
-
-
 class ObstacleAvoidingPlanningAdapter:
-    def __init__(
-        self, kinematics: _KinematicsPortWithForward, clearance: float = 0.05
-    ) -> None:
+    def __init__(self, kinematics: KinematicsPort, clearance: float = 0.05) -> None:
         self._kinematics = kinematics
         self._clearance = clearance
 

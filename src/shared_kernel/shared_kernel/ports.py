@@ -8,7 +8,7 @@ solo necesita implementar estos métodos, nada más.
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import List, Protocol
 
 from geometry_kernel import Pose, Scene
 
@@ -51,15 +51,43 @@ class RobotConnectorPort(Protocol):
 
 
 class KinematicsPort(Protocol):
-    """Cinemática inversa pura: de un objetivo cartesiano a una trayectoria
-    alcanzable, sin conocer la escena ni evitar nada. Puede implementarse
-    vía PoE, GA (gafro), DH numérico, etc. La evitación de obstáculos NO es
-    responsabilidad de este puerto — ver `PlanningPort`.
+    """Cinemática de un robot de cadena serie: de un objetivo cartesiano a
+    una trayectoria alcanzable (inversa), y de una configuración de
+    articulaciones a dónde está el robot en cartesiano (directa) — sin
+    conocer la escena ni evitar nada. Puede implementarse vía PoE, GA
+    (gafro), DH numérico, delegando en un simulador, etc. La evitación de
+    obstáculos NO es responsabilidad de este puerto — ver `PlanningPort`.
+
+    `forward_kinematics`/`link_poses` son parte formal del contrato desde
+    el 08/09 (antes solo las ofrecía `PoeKinematicsAdapter`, por `Protocol`
+    ad-hoc de cada consumidor — ver [[Decisiones de Diseño Clave]]): la
+    cinemática directa es mucho más simple que la inversa (una composición
+    de transformaciones, no hace falta iterar) y cualquier adaptador de
+    cadena serie puede darla, resuelva la IK como la resuelva — no es una
+    capacidad especial de PoE. Un adaptador sin matemática propia todavía
+    (GA/DH, en fase de stub) puede lanzar `NotImplementedError` en los
+    tres métodos por igual, en vez de solo en `compute_trajectory`.
     """
 
     def compute_trajectory(
         self, goal: Pose, current_configuration: JointConfiguration
     ) -> Trajectory: ...
+
+    def forward_kinematics(self, configuration: JointConfiguration) -> Pose:
+        """Pose cartesiana del tip para `configuration`, en el mismo marco
+        (relativo a `base_link`) que exige `goal` en `compute_trajectory`."""
+        ...
+
+    def link_poses(self, configuration: JointConfiguration) -> List[Pose]:
+        """Pose cartesiana de CADA articulación (no solo el tip), en orden
+        de cadena cinemática y en el mismo marco que `forward_kinematics`.
+        No se asume `link_poses(...)[-1] == forward_kinematics(...)` a nivel
+        de puerto -- coincide cuando el tip está exactamente en el frame de
+        la última articulación (p. ej. PoE, si `RobotDescription` no tiene
+        ningún eslabón estático tras ella), pero un adaptador cuyo `tip`
+        tenga un offset propio (p. ej. una malla/dummy más allá del último
+        joint) puede legítimamente devolver poses distintas."""
+        ...
 
 
 class PerceptionPort(Protocol):

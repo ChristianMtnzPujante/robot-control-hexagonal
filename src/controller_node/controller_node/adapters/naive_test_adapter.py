@@ -13,6 +13,7 @@ No lo actives nunca como la estrategia "de verdad" en una sesión real.
 from __future__ import annotations
 
 import math
+from typing import List
 
 from shared_kernel import JointConfiguration, JointPosition, Pose, Trajectory
 
@@ -38,3 +39,23 @@ class NaiveTestKinematicsAdapter:
             waypoints.append(JointConfiguration.create(positions).value)
 
         return Trajectory.create(waypoints).value
+
+    def forward_kinematics(self, configuration: JointConfiguration) -> Pose:
+        # Parte formal de KinematicsPort desde el 08/09 (ver shared_kernel/
+        # ports.py). Este doble no tiene ningún modelo geométrico del robot
+        # -- devolver una Pose inventada sería más peligroso que fallar
+        # ruidosamente (nadie que use este doble para probar el cableado
+        # debería estar apoyándose además en su geometría, ver docstring
+        # del módulo: "no lo actives nunca como estrategia de verdad").
+        raise NotImplementedError(
+            "NaiveTestKinematicsAdapter: doble de pruebas, no implementa "
+            "cinemática directa real -- no lo uses con un PlanningPort que "
+            "la necesite (ver ObstacleAvoidingPlanningAdapter)."
+        )
+
+    def link_poses(self, configuration: JointConfiguration) -> List[Pose]:
+        raise NotImplementedError(
+            "NaiveTestKinematicsAdapter: doble de pruebas, no implementa "
+            "cinemática directa real -- no lo uses con un PlanningPort que "
+            "la necesite (ver WholeBodyObstacleAvoidingPlanningAdapter)."
+        )

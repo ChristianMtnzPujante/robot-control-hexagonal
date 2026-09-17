@@ -19,11 +19,28 @@ la escena real.
 saltos grandes puede no converger (límites de articulación, pasos
 demasiado grandes). Si eso pasa, se lanza un error explícito en vez de
 devolver una trayectoria hacia un sitio equivocado.
+
+`forward_kinematics`/`link_poses` (parte formal de `KinematicsPort` desde
+el 08/09, ver `shared_kernel/ports.py`) se resuelven sobre el MISMO
+entorno IK aislado que `compute_trajectory` -- se fija cada joint clon a
+los ángulos de la `JointConfiguration` recibida (`simIK.setJointPosition`,
+sin invocar el solver) y se lee de vuelta la pose del objeto clon que
+corresponda (`simIK.getObjectPose`) -- igual que `compute_trajectory` NO
+toca la escena real al calcular, solo el clon. A diferencia de PoE, aquí
+NO se garantiza `link_poses(...)[-1] == forward_kinematics(...)`: `tip`
+puede tener un offset propio respecto a la última articulación (p. ej. una
+malla visual montada más allá del último joint) -- cada uno se lee de su
+propio objeto real, sin asumir que coinciden.
+
+NOTA: implementado sin poder verificarlo en vivo contra una instancia real
+de CoppeliaSim en este entorno (requiere GUI, no disponible aquí) -- antes
+de confiar en esto en una sesión real, comprobarlo contra la escena
+`cr5_base.ttt` igual que se hizo con el resto del adaptador.
 """
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from coppeliasim_zmqremoteapi_client import RemoteAPIClient
 from shared_kernel import JointConfiguration, JointPosition, Pose, Trajectory
@@ -48,6 +65,7 @@ class CoppeliaSimIkKinematicsAdapter:
 
         base = self._sim.getObject(f"/{base_name}")
         tip = self._sim.getObject(f"/{tip_name}")
+        self._tip = tip
         template_target = self._get_or_create_template_target(tip)
 
         self._env = self._simIK.createEnvironment()
@@ -116,3 +134,28 @@ class CoppeliaSimIkKinematicsAdapter:
             real_handle = self._sim.getObject(f"/{position.joint_name}")
             mapping[position.joint_name] = self._real_to_clone[real_handle]
         self._joint_clone_handles = mapping
+
+    def forward_kinematics(self, configuration: JointConfiguration) -> Pose:
+        self._apply_configuration_to_clone(configuration)
+        return self._read_clone_pose(self._real_to_clone[self._tip])
+
+    def link_poses(self, configuration: JointConfiguration) -> List[Pose]:
+        self._apply_configuration_to_clone(configuration)
+        return [
+            self._read_clone_pose(self._joint_clone_handles[position.joint_name])
+            for position in configuration.positions
+        ]
+
+    def _apply_configuration_to_clone(self, configuration: JointConfiguration) -> None:
+        # Fija cada joint del CLON a los ángulos recibidos, sin invocar
+        # handleGroup -- no es una IK a resolver, es leer hacia atrás una
+        # configuración ya conocida. No toca la escena real (mismo
+        # aislamiento que compute_trajectory).
+        self._ensure_joint_mapping(configuration)
+        for position in configuration.positions:
+            handle = self._joint_clone_handles[position.joint_name]
+            self._simIK.setJointPosition(self._env, handle, position.angle_radians)
+
+    def _read_clone_pose(self, handle: int) -> Pose:
+        x, y, z, qx, qy, qz, qw = self._simIK.getObjectPose(self._env, handle, -1)
+        return Pose(x=x, y=y, z=z, qx=qx, qy=qy, qz=qz, qw=qw)

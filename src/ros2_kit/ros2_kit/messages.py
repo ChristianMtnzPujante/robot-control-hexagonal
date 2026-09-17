@@ -15,6 +15,7 @@ ROADMAP.md Bloque 3 y docs/nodos_ros2.md §4).
 from __future__ import annotations
 
 import json
+from typing import Tuple
 
 from geometry_msgs.msg import Pose as PoseMsg
 from sensor_msgs.msg import JointState
@@ -120,3 +121,36 @@ def from_scene_msg(msg: String) -> Scene:
     for name, point in payload.get("objects", {}).items():
         scene = scene.with_object(name, _point_from_list(point))
     return scene
+
+
+def to_obstacle_report_msg(name: str, obstacle: SphereObstacle) -> String:
+    """Un único obstáculo "reportado", con nombre -- mismo patrón JSON en
+    `std_msgs/String` que `to_scene_msg`, pero para el canal de inyección
+    de eventos de un `PerceptionPort` dinámico (hoy, `PseudoPerceptionAdapter`
+    vía `perception_node`), no para el estado completo de la escena."""
+    payload = {
+        "name": name,
+        "center": _point_to_list(obstacle.center),
+        "radius": obstacle.radius,
+    }
+    return String(data=json.dumps(payload))
+
+
+def from_obstacle_report_msg(msg: String) -> Tuple[str, SphereObstacle]:
+    payload = json.loads(msg.data)
+    obstacle = SphereObstacle(
+        center=_point_from_list(payload["center"]), radius=payload["radius"]
+    )
+    return payload["name"], obstacle
+
+
+def to_object_report_msg(name: str, position: Point) -> String:
+    """Un único objeto/objetivo "reportado", con nombre -- ver
+    `to_obstacle_report_msg`."""
+    payload = {"name": name, "position": _point_to_list(position)}
+    return String(data=json.dumps(payload))
+
+
+def from_object_report_msg(msg: String) -> Tuple[str, Point]:
+    payload = json.loads(msg.data)
+    return payload["name"], _point_from_list(payload["position"])
