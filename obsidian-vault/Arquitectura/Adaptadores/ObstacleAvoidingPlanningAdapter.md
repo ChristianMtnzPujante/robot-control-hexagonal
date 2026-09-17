@@ -53,3 +53,4 @@ codo/antebrazo aunque el tip lo esquive. Para eso, ver
 - [[WholeBodyObstacleAvoidingPlanningAdapter]]
 - [[PoeKinematicsAdapter]]
 - [[Evitación de Colisiones]] — prueba real en vivo contra CoppeliaSim
+- [[_segment_geometry (geometría compartida)]] — `worst_intersection`/`detour_point`, la geometría pura detrás del paso 2-3

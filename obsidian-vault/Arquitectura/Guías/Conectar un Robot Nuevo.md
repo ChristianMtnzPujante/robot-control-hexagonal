@@ -86,3 +86,5 @@ Cómo se materializó cada paso genérico para este robot en particular
 - [[Cr5RealRobotAdapter]]
 - [[Anatomía de un Nodo]]
 - [[Decisiones de Diseño Clave]]
+- [[urdf_kit y RobotDescription]] — referencia función por función de cómo `urdf_kit` deriva twists/nombres/DOF de cualquier `.urdf`
+- [[RobotNode]] — dónde se cablea de verdad `_TARGETS` para un robot nuevo

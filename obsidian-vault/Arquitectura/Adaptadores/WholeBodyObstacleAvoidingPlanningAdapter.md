@@ -50,3 +50,4 @@ de defensa distintas.
 - [[PoeKinematicsAdapter]]
 - [[Cr5RealRobotAdapter]]
 - [[Evitación de Colisiones]] — prueba real en vivo contra CoppeliaSim
+- [[_segment_geometry (geometría compartida)]] — la geometría pura que usa por cada eslabón, vía `_body_segments`

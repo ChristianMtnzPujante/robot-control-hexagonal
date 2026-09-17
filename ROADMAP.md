@@ -44,9 +44,21 @@ numeran al final para no romper las referencias cruzadas ya existentes a
 el 10 y el 12 cubren objetivos formales de la beca hoy sin ningún bloque
 propio.
 
+**Cruce con la tesis (añadido el 16/09):** cada bloque lleva debajo de su
+título una línea `Tesis:` que dice a qué fase y objetivo de la propuesta
+(`~/Desktop/doctorado/propuesta_tesis_CGA_LLM.tex`, fases 1–5 y objetivos
+H1–H4) alimenta, o si queda fuera de su camino crítico. Los códigos `F1.1`,
+`F4a.2`, etc. son los paquetes de trabajo de la hoja de ruta de la tesis;
+es la misma idea que ya pide el Bloque 2 para los papers ("anotar a qué
+bloque alimenta"), aplicada en sentido contrario.
+
 ---
 
 ## Bloque 0 — CR5: instanciación y caso de uso real
+
+> **Tesis:** Fase 1 (base de ejecución ya validada en hardware; cierre en
+> `F1.8`) y Fase 2 (los adaptadores PoE/DH intercambiables son el "brazo
+> convencional" del banco H1.1, `F2.3`). Estado: casi cerrado.
 
 Objetivo de este bloque (redefinido 04/09): dejar de ser la base teórica del
 sistema clásico (esa base ya no depende de un robot fijo, ver Bloque 9) y
@@ -122,6 +134,68 @@ Bloque 0 #20/#110/#111/#112/#113):**
       prematuro respecto al robot real, error "-7 script pausado" resuelto
       con un power-cycle del controlador): detalle completo en Vikunja
       #110, #116, #117, #118.
+- [x] **(14/09)** Gesto de saludo (`cr5_wave_sim_demo.py` en `commander`,
+      `cr5_wave_demo.py` en `robot_node`) — a petición del usuario, tras el
+      círculo: la punta recorre un ARCO suave de lado a lado (más alto en
+      el centro que en los extremos) mientras la herramienta, inclinada
+      HACIA ARRIBA, bascula en fase con el desplazamiento. La segunda
+      mitad (arco + inclinación) salió de una corrección del usuario sobre
+      la primera versión, que era una línea recta con la herramienta
+      horizontal: "tiene una pinza que sería como la mano conectada, así
+      quedaría mejor". Por defecto ±0.15m, 0.05m de flecha de arco, ±25°
+      de basculación y 25° de inclinación, a lo largo de 3 ciclos de 16
+      puntos = 48 `MovJ` seguidos por la misma conexión (más del doble que
+      el círculo completo). Verificado en vivo contra CoppeliaSim;
+      **pendiente de ejecutar contra el CR5 físico** (requiere
+      confirmación interactiva).
+
+      **Hallazgo geométrico 1 (14/09) — por qué la home no vale, ahora con
+      un número.** Extiende el hallazgo del 08/09 ("la home no puede subir,
+      solo bajar", encontrado por barrido de IK al diseñar el semicírculo).
+      En la home el tip está a 0.933m del hombro y el alcance de catálogo
+      del CR5 es 0.9m: la home está literalmente en el borde del espacio
+      alcanzable, con el brazo completamente extendido en vertical. De ahí
+      que tampoco pueda moverse de lado manteniendo la altura — cualquier
+      punto con el mismo z y distinto x queda TODAVÍA más lejos. No hace
+      falta invocar ninguna singularidad para explicarlo: es alcance puro.
+      La postura de saludo por defecto deja el tip a 0.647m del hombro,
+      25cm de margen.
+
+      **Hallazgo geométrico 2 (14/09) — el cabeceo por conjugación, no por
+      IK.** Inclinar la herramienta hacia arriba es una rotación sobre el
+      eje X del mundo, y en la postura de saludo NINGÚN joint del CR5 la
+      da suelto: el eje de `joint4`/`joint6` es el eje Y del mundo y el de
+      `joint5` es el eje Z. Pero conjugar una rotación sobre Z por ±90°
+      sobre Y la convierte en una sobre X — Ry(-90)·Rz(β)·Ry(90) = Rx(-β)
+      — así que con `joint4`=+45 y `joint6`=-90 fijos, **`joint5` pasa a
+      SER directamente el ángulo de cabeceo** (verificado numéricamente:
+      error de orientación ~1e-6 frente al objetivo). Eso deja la postura
+      de saludo en (0, -45, 90, 45, β, -90), analítica y sin IK.
+
+      La alternativa obvia —pedir la pose inclinada por IK, rotando la
+      pose "plana" sobre X y dejando que Newton-Raphson encuentre la
+      postura— se probó y se descartó: converge, pero a una rama
+      contorsionada (`joint1`=-9°, `joint6`=-69°) desde la que el barrido
+      del saludo daba saltos de **hasta 51° entre waypoints consecutivos**,
+      porque la IK iba saltando de rama a lo largo del recorrido. Fijando
+      la postura analíticamente y dejando que la IK solo siga deltas
+      pequeños, ese máximo baja a ~7°. Es el mismo tipo de lección que ya
+      dio `_snap_to_exact_start_if_needed` en el círculo: cuando hay
+      redundancia, conviene ANCLAR la rama en vez de confiar en que la IK
+      elija siempre la misma.
+
+      Resultado medido con los valores por defecto: `joint1` se queda a 0°
+      y `joint5`/`joint6` CLAVADOS en la inclinación durante todo el
+      saludo — el gesto entero lo hacen `joint2`/`joint3`/`joint4`, el
+      plano del brazo. El robot no gira el "cuerpo" ni retuerce la muñeca:
+      solo mece el brazo con la mano fija apuntando hacia arriba.
+      De autocolisión es el recorrido MÁS holgado de los cartesianos del
+      repo: distancia mínima entre eslabones no adyacentes de 0.116m en
+      todo el gesto — la misma que en la home, y muy lejos de los 0.077m a
+      los que saltó la alarma [76] del fabricante durante el semicírculo.
+      Y cierra sobre su postura de partida por construcción
+      (sin(2π·ciclos)=0) con 0.01° de residuo, muy por debajo del umbral
+      de 0.5° de `_snap_to_exact_start_if_needed`.
 
 - [ ] **Propuesta (03/09, sin diseñar todavía — ver Vikunja):** modularizar
       la definición de canales ROS2 (topics, QoS, tipo de mensaje, quién
@@ -135,6 +209,11 @@ Bloque 0 #20/#110/#111/#112/#113):**
       a cada valor.
 
 ## Bloque 1 — Investigación: álgebra geométrica conforme (CGA)
+
+> **Tesis:** Fase 1 · Objetivo H2.1 (`F1.1` viabilidad de `pygafro`,
+> `F1.2` GAFRO como `KinematicsPort`, o `F1.2b` plan B en Python); Fase 4a ·
+> H3.1 (`F4a.2`, escena conforme); Fase 4b · H4.3b (MPC conforme). Es el
+> **bloqueador activo** de la tesis: `F1.1` es la primera tarea del sprint.
 
 - [ ] Fundamentos de CGA: producto geométrico, blades, cómo un
       plano/esfera/punto se representan como objetos algebraicos (no como
@@ -172,6 +251,11 @@ Bloque 0 #20/#110/#111/#112/#113):**
 
 ## Bloque 2 — Investigación: estado del arte (en paralelo al resto)
 
+> **Tesis:** Fase 1 · hito (artículo de revisión, `F1.3`) y revisión formal
+> de A.2 con protocolo de búsqueda. Las lecturas de este bloque y el plan de
+> lectura del proyecto Vikunja "Doctorado — Tesis" son la misma tabla de
+> evidencia.
+
 - [ ] Revisión de literatura seria, no solo dos búsquedas: partir del
       survey de ML+sampling-based planning y el de language-conditioned
       manipulation (arXiv 2312.10807).
@@ -200,6 +284,12 @@ Bloque 0 #20/#110/#111/#112/#113):**
       evita que la lectura quede desconectada de la implementación.
 
 ## Bloque 3 — Percepción y grounding (el cuello de botella real)
+
+> **Tesis:** Fase 2 (generador de escenas del banco H1.1, `F2.2`, sobre
+> `FilePerceptionAdapter`/`coppeliasim_scene_builder`); Fase 4a · H3.1/H3.2
+> (`F4a.1` ground truth de CoppeliaSim, `F4a.2` traducción detección →
+> primitiva CGA, `F4a.3` cierre de la tubería de escena, `F4a.4` percepción
+> con DL). Estado: avanzado.
 
 - [x] Nuevo puerto `PerceptionPort` en `shared_kernel` (protocolo, igual
       que `KinematicsPort`): "detecta plano X", "lista obstáculos
@@ -233,6 +323,16 @@ Bloque 0 #20/#110/#111/#112/#113):**
       "Replanificación local cuando cambia el campo de obstáculos" (Bloque
       4, todavía pendiente) — aquí el "cambio" lo dispara código, no un
       sensor real.
+      **(08/09)** Hasta hoy solo se usaba desde dentro del mismo proceso
+      Python (un demo instanciándolo directamente) — ahora está cableado de
+      verdad en `perception_node` (`perception_target="pseudo"`), con dos
+      topics de entrada nuevos (`/perception/report_obstacle`,
+      `/perception/report_object`, JSON en `std_msgs/String`, mismo patrón
+      que `/perception/scene`) para que un proceso externo pueda inyectar
+      eventos sin compartir proceso con el nodo. Verificado en vivo con
+      `rclpy` real (no solo tests): un obstáculo y un objeto publicados por
+      un proceso aparte aparecen en `/perception/scene` sin reiniciar el
+      nodo.
 - [ ] **Decisión de diseño, de cara al futuro (Bloque 6 — LLM vía tools):**
       cualquier adaptador de `PerceptionPort` (empezando por el
       pseudo-perceptor de arriba) debería, al configurarse, ANUNCIAR qué
@@ -324,22 +424,63 @@ Bloque 0 #20/#110/#111/#112/#113):**
 
 ## Bloque 4 — Planificador reactivo con evitación (Régimen 2, rápido)
 
-- [ ] Geometría del robot completo, no solo el tip: hoy la evitación de
-      obstáculos (incluida `ObstacleAvoidingPlanningAdapter`, rama de
-      experimentación) solo comprueba la trayectoria de un punto — el
-      efector — pero un robot real puede colisionar con cualquier eslabón,
-      no solo con la punta. Hace falta poder consultar, para una
-      `JointConfiguration` dada, la pose de CADA articulación/eslabón, no
-      solo la del tip: `PoeKinematicsAdapter` ya acumula internamente las
-      transformadas intermedias por articulación para llegar a la del tip
-      (`_forward_kinematics`, ver `poe_adapter.py`) — falta exponerlas
-      todas, no solo la última. Para robots de geometría conocida (como el
+> **Tesis:** Fase 1 · `F1.6` (los adaptadores de autocolisión y cuerpo
+> completo son la comprobación previa a ejecutar de la Protocol Layer,
+> verify-then-act); Fase 4a (capa de ejecución del pipeline, `F4a.6`).
+> Estado: avanzado. CHOMP/RRT no están en el camino crítico de H1–H4.
+
+- [x] Geometría del robot completo, no solo el tip — resuelto por
+      `WholeBodyObstacleAvoidingPlanningAdapter` (mergeado 01/09), que
+      consulta `link_poses` para comprobar cada eslabón. Casilla sin
+      marcar hasta ahora pese a estar hecho.
+      **(08/09)** Además, `forward_kinematics`/`link_poses` pasan de ser
+      un método extra de `PoeKinematicsAdapter` a parte FORMAL de
+      `KinematicsPort` (`shared_kernel/ports.py`) — antes cada consumidor
+      (`ObstacleAvoidingPlanningAdapter`/`WholeBodyObstacleAvoidingPlanningAdapter`)
+      declaraba su propio `Protocol` local más estrecho para exigirlos por
+      duck typing; ahora viven en el puerto mismo. `CoppeliaSimIkKinematicsAdapter`
+      los implementa por primera vez (sobre el mismo entorno IK aislado
+      que ya usaba `compute_trajectory`, sin verificar aún en vivo contra
+      CoppeliaSim); `GaKinematicsAdapter`/`DhKinematicsAdapter` (stubs) y
+      `NaiveTestKinematicsAdapter`/`StraightLineKinematicsAdapter` (dobles
+      de test) los declaran lanzando `NotImplementedError`, por
+      consistencia con `compute_trajectory`.
+      Para robots de geometría conocida (como el
       CR5, vía `RobotDescription` — Bloque 9) esto se deriva directamente
       sin percepción; ver también Bloque 1 (CGA): representar cada eslabón
       como una recta podría ser la forma natural de comprobar distancia a
       los `SphereObstacle` de la `Scene` (CGA representa líneas de forma
       nativa — comprobar si `gafro`/`pygafro` ya lo resuelve antes de
       construirlo a mano).
+- [x] **(08/09)** Autocolisión como comprobación de base, no ad-hoc —
+      motivado por un hallazgo real: `cr5_semicircle_demo.py` disparó una
+      alarma real del CR5 físico (`GetErrorID()`=[76], "el extremo
+      interfiere con el cuerpo del robot", nivel 5) al mandar una
+      secuencia de `MovJ` consecutivos. Nuevo `SelfCollisionAwarePlanningAdapter`
+      (tercer `PlanningPort`): cápsulas (segmento + radio) sobre
+      `link_poses`, rechaza la trayectoria entera si algún waypoint
+      colisiona consigo mismo — no intenta rodearla (eso es CHOMP/RRT, más
+      abajo). Radio único calibrado contra dos puntos reales (home: 11.6cm
+      de margen mínimo; la secuencia que disparó la alarma: 7.7cm en el
+      peor tramo), no adivinado — ver la vault, Decisiones de Diseño Clave.
+      Corregido también `cr5_disable_demo.py`: en alarma, `DisableRobot()`
+      no se ejecuta hasta `ClearError()` (manual oficial, sección "Códigos
+      de error generales"), paso que faltaba.
+      **Segunda vuelta, mismo día**, a petición del usuario ("necesitamos
+      generar una trayectoria en la que no colisione, por los mismos
+      puntos"): nuevo `SelfCollisionAvoidingPlanningAdapter` (misma
+      familia) que, en vez de solo rechazar, explota la singularidad de
+      `joint5≈0` (ya documentada en `PoeKinematicsAdapter`) — cerca de ahí
+      `joint4`/`joint6` tienen un grado de libertad casi redundante para
+      una orientación dada, reintenta la IK del mismo objetivo desde una
+      semilla con esos dos joints desplazados en pasos crecientes hasta
+      encontrar una rama libre. Verificado contra el incidente real
+      completo: 4° de desplazamiento ya basta, salto adicional de ~10°
+      (frente a ~180° de una vuelta de muñeca completa) — las 9
+      configuraciones del arco real se alcanzan sin excepción, mismo
+      destino cartesiano exacto. Wireado en `cr5_semicircle_sim_demo.py`
+      (verificado en vivo contra CoppeliaSim) y `cr5_semicircle_demo.py`
+      (verificado contra el arnés de servidor TCP de mentira).
 - [ ] Adaptador tipo CHOMP mínimo (gradiente, evita regiones/esferas CGA
       del Bloque 3) como nueva `strategy` de `controller_node` — mismo
       patrón que ya usa `_build_adapter`.
@@ -360,6 +501,9 @@ Bloque 0 #20/#110/#111/#112/#113):**
 
 ## Bloque 5 — Selección y conmutación de planificador
 
+> **Tesis:** sin mapeo directo a H1–H4. Podría entrar como baseline en el
+> banco H1.1 si la comparativa lo pide; no bloquea ninguna fase.
+
 - [ ] Features de escena estilo HyperPlan, pero derivadas de las
       primitivas CGA (ratio de espacio libre, nº de regiones-obstáculo,
       etc.) en vez de heurísticas ad-hoc.
@@ -373,6 +517,12 @@ Bloque 0 #20/#110/#111/#112/#113):**
       para que la conmutación tenga garantías, no solo heurística.
 
 ## Bloque 6 — API de tools expuesta por el repo, consumida por el LLM (Régimen 1)
+
+> **Tesis:** Fase 1 · Objetivo H2.2 (`F1.4` catálogo de tools con esquema
+> CGA, `F1.5` servidor MCP + piloto, `F1.6` Protocol Layer verify-then-act);
+> Fase 4a · H4.3a (restricciones discretas como parámetros de tools,
+> `F4a.5`). La propuesta ya fija MCP como mecanismo (A.3), lo que cierra la
+> tarea "MCP vs REST/gRPC" de abajo. Estado: sin empezar.
 
 - [ ] Diseñar la superficie de la API: qué operaciones expone el backend
       como tools de alto nivel (crear `ControlSession`, listar estrategias
@@ -401,6 +551,11 @@ Bloque 0 #20/#110/#111/#112/#113):**
 
 ## Bloque 7 — Supervisión LLM a ritmo lento (Régimen 2, lento)
 
+> **Tesis:** Fase 1 · Objetivo H2.3 (`F1.7`, grafo LangGraph que acota
+> tools por estado); Fase 4a · H4.2 (flujo único LangGraph, `F4a.5`); Fase
+> 4b · `F4b.3` (solo ahí se decide si H4.2 y H2.3 se separan en dos
+> mecanismos). Estado: sin empezar.
+
 - [ ] Canal de comunicación entre el planificador reactivo (Bloque 4/5) y
       un proceso supervisor LLM aparte: qué eventos disparan consulta, a
       qué cadencia.
@@ -415,6 +570,11 @@ Bloque 0 #20/#110/#111/#112/#113):**
       con el patrón de procesos separados que ya usa `ControlSession`.
 
 ## Bloque 8 — Física real y consolidación
+
+> **Tesis:** Fase 4a · `F4a.6` (validación del pipeline en el CR5 físico,
+> con los límites de seguridad reforzados antes de ejecutar nada emitido
+> por el LLM); Fase 5 (la tarea "documentar qué demostró el prototipo" es
+> el capítulo de discusión de la tesis). Estado: parcial.
 
 - [ ] `Cr5RealRobotAdapter` real, con los límites de seguridad reforzados
       antes de ejecutar ahí nada generado por LLM.
@@ -434,6 +594,10 @@ Bloque 0 #20/#110/#111/#112/#113):**
       arma una propuesta de tesis seria.
 
 ## Bloque 9 — Generalizar de CR5 fijo a carga de escena/robot arbitrario
+
+> **Tesis:** fuera del camino crítico (decisión de A.1: plataforma propia
+> sobre el CR5). No bloquea ninguna fase; se retoma si aparece un segundo
+> robot o si `gafro` carga URDF genérico "gratis".
 
 Todo el sistema hoy asume un único robot fijo (el CR5) en varios sitios
 distintos, sin un único lugar que lo describa — mismo problema repetido:
@@ -495,6 +659,10 @@ de orden sugerido arriba) pero conviene resolverlo antes de que Bloque 3+
 
 ## Bloque 10 — Dinámica de la cadena cinemática
 
+> **Tesis:** Fase 4b · `F4b.1`, solo si el MPC conforme de GAFRO necesita
+> un modelo dinámico del CR5 (masas e inercias del URDF). Hasta entonces es
+> objetivo de la beca, no de la tesis.
+
 Añadido el 02/09 tras contrastar este ROADMAP contra los objetivos
 formales de la beca: "simulación cinemática **y dinámica** de cadenas
 robóticas lineales" tiene una mitad, la dinámica, sin ningún bloque
@@ -529,6 +697,10 @@ dirección contraria (ver la tercera tarea).
 
 ## Bloque 11 — Controladores de bajo nivel para servos (C/C++)
 
+> **Tesis:** fuera del alcance de la tesis, pendiente de confirmar con el
+> director/a qué parte de la beca se cubre con ella (decisión prevista para
+> el Año 1 T2 de la hoja de ruta).
+
 Añadido el 02/09, mismo contraste contra la beca. Hueco casi total hoy:
 todo el repo es Python/ROS2 a nivel de aplicación.
 
@@ -549,6 +721,10 @@ todo el repo es Python/ROS2 a nivel de aplicación.
       control PID en C/C++ sobre microcontrolador.
 
 ## Bloque 12 — Colaboración humano-robot
+
+> **Tesis:** fuera del núcleo H1–H4. El requisito de seguridad mínimo
+> (persona como obstáculo del Bloque 4) sale casi gratis con la percepción
+> de la Fase 4a, pero no es objetivo de la tesis.
 
 Añadido el 02/09. El objetivo de beca de "generación de trayectorias con
 realimentación visual" menciona explícitamente un "sistema

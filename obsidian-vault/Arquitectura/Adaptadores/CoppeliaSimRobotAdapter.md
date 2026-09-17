@@ -42,3 +42,4 @@ sería correcto aunque existiera el método. Existe solo para cumplir
 - [[RobotConnectorPort]]
 - [[Cr5RealRobotAdapter]]
 - [[Commander y ControlSession]]
+- [[Herramientas de CoppeliaSim]] — `build_scene`/`build_cr5_scene`, cómo se construye la escena que este adaptador espera ya cargada

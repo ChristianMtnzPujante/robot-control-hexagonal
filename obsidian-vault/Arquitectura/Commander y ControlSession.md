@@ -65,3 +65,5 @@ Parte del trabajo de generalización del Bloque 9.
 - [[Scene y Percepción]]
 - [[Arquitectura Hexagonal]]
 - [[Decisiones de Diseño Clave]]
+- [[Commander (referencia de código)]] — referencia función por función de `Commander` y `ControlSession`
+- [[Herramientas de CoppeliaSim]] — `coppeliasim_launcher.py`/`coppeliasim_scene_builder.py`, usados por varios demos de este paquete

@@ -8,3 +8,6 @@ __pycache__/
 # Estado local de la app Obsidian (pestañas abiertas, etc.) — no es contenido
 obsidian-vault/.obsidian/workspace.json
 obsidian-vault/.obsidian/workspace-mobile.json
+
+# Vista del grafo de Obsidian (estado de la UI, no contenido)
+obsidian-vault/.obsidian/graph.json

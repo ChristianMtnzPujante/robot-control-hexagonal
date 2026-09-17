@@ -21,24 +21,29 @@ geometry_kernel   ← shared_kernel  ← ros2_kit ← {robot_node, controller_no
 
 - **`geometry_kernel`** — nivel más bajo: `Pose`, `Point`, `Plane`,
   `SphereObstacle`, `Scene`. No depende de nada, ni siquiera de
-  `shared_kernel` — es al revés. Ver [[Scene y Percepción]].
+  `shared_kernel` — es al revés. Ver [[Scene y Percepción]] y, para la
+  referencia función por función, [[Primitivas Geométricas]].
 - **`shared_kernel`** — value objects de ejecución/cinemática
   (`JointConfiguration`, `Trajectory`, `Either`), los puertos, y
   `RobotDescription`. Depende de `geometry_kernel` y reexporta
   `Pose`/`Scene` para que el resto siga haciendo
-  `from shared_kernel import ...` sin enterarse.
+  `from shared_kernel import ...` sin enterarse. Referencia función por
+  función: [[Value Objects y Dominio]].
 - **`ros2_kit`** — infraestructura ROS2 compartida: mensajes ↔ dominio
   (`ros2_kit/messages.py`), QoS (`ros2_kit/qos.py`), configuración
   declarativa por YAML (`ros2_kit/node_config.py`). `shared_kernel` sigue sin
-  depender de esto ni de ROS2 en absoluto.
+  depender de esto ni de ROS2 en absoluto. Referencia función por función:
+  [[Infraestructura ROS2 (ros2_kit)]].
 - **`ros1_kit`** — boceto deliberadamente sin conectar a nada (pensado para
   un puente `ros1_bridge` hacia el driver oficial del CR5). Descartado el
   04/09 a favor de reimplementar TCP/IP directo — ver
-  [[Decisiones de Diseño Clave]].
+  [[Decisiones de Diseño Clave]] y, para el detalle del boceto en sí,
+  [[Infraestructura ROS2 (ros2_kit)]].
 - **`urdf_kit`** — parsea un `.urdf` real y produce un `RobotDescription`
   (cadena de articulaciones entre `base_link` y `tip_link`). Es lo que
   permite que `ControlSession` derive `joint_names` de un robot arbitrario en
-  vez de tenerlos hardcodeados — ver Bloque 9 en [[Estado del Roadmap]].
+  vez de tenerlos hardcodeados — ver Bloque 9 en [[Estado del Roadmap]] y la
+  referencia función por función en [[urdf_kit y RobotDescription]].
 - **`robot_node` / `controller_node` / `perception_node` / `commander`** —
   los cuatro paquetes ROS2 reales. `robot_node` envuelve
   `RobotConnectorPort`, `controller_node` envuelve
@@ -67,3 +72,4 @@ vía un registro `str -> factoría`, no un `if/elif` que crece sin límite.
 - [[Commander y ControlSession]]
 - [[Scene y Percepción]]
 - [[Estado del Roadmap]]
+- [[Value Objects y Dominio]] · [[Primitivas Geométricas]] · [[Infraestructura ROS2 (ros2_kit)]] · [[urdf_kit y RobotDescription]] — referencia función por función de cada paquete de este mapa

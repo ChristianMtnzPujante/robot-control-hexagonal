@@ -60,9 +60,13 @@ type="fixed">` intermedio en el origen de la articulación móvil siguiente.
 Esto es lo que permite que [[Commander y ControlSession|ControlSession]]
 derive `joint_names` de un robot arbitrario en vez de tenerlos hardcodeados
 para el CR5 — pieza central del Bloque 9, ver [[Estado del Roadmap]].
+Referencia función por función de `parser.py` y `robot_description.py`:
+[[urdf_kit y RobotDescription]].
 
 ## Ver también
 
 - [[Puertos y Adaptadores]]
 - [[Commander y ControlSession]]
 - [[Arquitectura Hexagonal]]
+- [[Primitivas Geométricas]] — referencia función por función de `Pose`/`Point`/`Plane`/`SphereObstacle` y de los métodos de `Scene`
+- [[urdf_kit y RobotDescription]] — referencia función por función de cómo se deriva `RobotDescription` de un `.urdf`

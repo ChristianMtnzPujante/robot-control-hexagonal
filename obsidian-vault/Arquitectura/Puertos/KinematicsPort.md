@@ -5,20 +5,44 @@ tags: [arquitectura, puerto]
 # KinematicsPort
 
 > `compute_trajectory(goal: Pose, current_configuration: JointConfiguration) -> Trajectory`
+> `forward_kinematics(configuration: JointConfiguration) -> Pose`
+> `link_poses(configuration: JointConfiguration) -> List[Pose]`
 
-`shared_kernel/ports.py` — cinemática inversa PURA: de un objetivo
-cartesiano a una trayectoria alcanzable, sin conocer la escena ni evitar
-nada (eso es responsabilidad de [[PlanningPort]], que puede apoyarse en
-un `KinematicsPort` para resolver cada tramo). `goal` es relativo a
-`base_link` — no todos los adaptadores respetan ese marco de la misma
-forma (ver el hallazgo de `two_sessions_demo.py` en [[Commander y ControlSession]]).
+`shared_kernel/ports.py` — cinemática de un robot de cadena serie: de un
+objetivo cartesiano a una trayectoria alcanzable (inversa, `compute_trajectory`),
+y de una `JointConfiguration` a dónde está el robot en cartesiano (directa,
+los otros dos), sin conocer la escena ni evitar nada (eso es responsabilidad
+de [[PlanningPort]], que puede apoyarse en un `KinematicsPort` para resolver
+cada tramo). `goal`/las poses devueltas son relativas a `base_link` — no
+todos los adaptadores respetan ese marco de la misma forma (ver el
+hallazgo de `two_sessions_demo.py` en [[Commander y ControlSession]]).
 
-Dos métodos extra, NO parte formal del puerto (solo los ofrece
-`PoeKinematicsAdapter` hoy), que consumen los adaptadores de
-[[PlanningPort]] que necesitan saber DÓNDE está el robot en cartesiano:
-`forward_kinematics(configuration) -> Pose` (solo el tip) y
-`link_poses(configuration) -> List[Pose]` (cada articulación, no solo el
-tip — `link_poses(...)[-1] == forward_kinematics(...)` por construcción).
+## Cinemática directa: parte formal del contrato desde el 08/09
+
+`forward_kinematics` (solo el tip) y `link_poses` (cada articulación, no
+solo el tip) son, conceptualmente, algo que CUALQUIER `KinematicsPort` de
+una cadena serie debería poder dar, resuelva la IK como la resuelva — la
+cinemática directa es un cálculo mucho más simple que la inversa (una
+composición de transformaciones, sin iterar). Hasta el 08/09 NO eran
+parte del `Protocol` (solo `compute_trajectory` lo era) y solo las
+implementaba `PoeKinematicsAdapter` — cada consumidor de [[PlanningPort]]
+que las necesitaba declaraba su propio `Protocol` local más estrecho
+(`_KinematicsPortWithForward`/`_KinematicsPortWithLinkPoses`, uno por
+adaptador) para exigirlas por duck typing. Formalizado en el puerto mismo
+— ver [[Decisiones de Diseño Clave]] para el motivo y la fecha.
+
+No se garantiza `link_poses(...)[-1] == forward_kinematics(...)` a nivel
+de puerto — coincide en PoE (`RobotDescription` no tiene ningún eslabón
+estático tras la última articulación), pero un adaptador cuyo `tip` tenga
+un offset propio (una malla/dummy más allá del último joint) puede
+legítimamente devolver poses distintas.
+
+| Adaptador                                                    | `forward_kinematics`/`link_poses`                                                                                                                                                                                                          |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [[PoeKinematicsAdapter]]                                     | Real — matemática propia (screw axes), `link_poses(...)[-1] == forward_kinematics(...)`.                                                                                                                                                   |
+| [[CoppeliaSimIkKinematicsAdapter]]                           | Real desde el 08/09 — sobre el mismo entorno IK aislado que `compute_trajectory` (`simIK.setJointPosition` + `simIK.getObjectPose`, sin tocar la escena real). **Sin verificar en vivo contra CoppeliaSim en esta sesión** (requiere GUI). |
+| `GaKinematicsAdapter`/`DhKinematicsAdapter`                  | `NotImplementedError`, igual que `compute_trajectory` — siguen siendo stubs.                                                                                                                                                               |
+| `NaiveTestKinematicsAdapter`/`StraightLineKinematicsAdapter` | `NotImplementedError` — dobles de test sin modelo geométrico real; no emparejar con un [[PlanningPort]] que necesite esto.                                                                                                                 |
 
 ## Adaptadores reales
 
@@ -55,3 +79,4 @@ tip — `link_poses(...)[-1] == forward_kinematics(...)` por construcción).
 - [[Puertos y Adaptadores]]
 - [[PlanningPort]]
 - [[Arquitectura Hexagonal]]
+- [[Value Objects y Dominio]] — referencia función por función de `Trajectory`/`JointConfiguration`, lo que produce y consume este puerto

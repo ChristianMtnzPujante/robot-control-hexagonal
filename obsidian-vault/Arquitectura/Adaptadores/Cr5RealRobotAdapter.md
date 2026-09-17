@@ -109,3 +109,4 @@ normal de una `ControlSession` como un crash (ver [[Commander y ControlSession]]
 - [[CoppeliaSimRobotAdapter]]
 - [[Decisiones de Diseño Clave]]
 - [[Estado del Roadmap]]
+- [[_cr5_protocol (protocolo TCP del CR5)]] — referencia función por función del módulo de protocolo en sí

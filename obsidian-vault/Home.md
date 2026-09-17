@@ -42,6 +42,25 @@ vez que lo abres, empieza por [[Cómo usar este vault (Obsidian)]].
 - [[Evitación de Colisiones]] — los dos planificadores de obstáculos, en vivo
 - [[Conectar un Robot Nuevo]] — guion genérico para dar de alta un robot distinto
 - [[Anatomía de un Nodo]] — el pipeline YAML → nodo → callbacks, paso a paso
+- [[Scripts de Demostración]] — catálogo de todos los scripts de demo/validación del repo, agrupados por tema
+
+## Referencia de código (función por función)
+
+Complemento de las notas de arquitectura de arriba: para cada paquete/nodo
+principal, una nota que recorre sus funciones/métodos uno por uno (qué
+hace, no cómo — el código en sí es la fuente de verdad). Útil para no
+tener que releer un archivo entero para recordar qué hace una función
+concreta.
+
+- [[Value Objects y Dominio]] — `shared_kernel`: `Either`, errores de dominio, `JointConfiguration`, `Trajectory`
+- [[Primitivas Geométricas]] — `geometry_kernel`: `Pose`, `Point`, `Plane`, `SphereObstacle`, métodos de `Scene`
+- [[Infraestructura ROS2 (ros2_kit)]] — `messages.py`, `node_config.py`, `qos.py`, `runner.py` (+ el boceto descartado `ros1_kit`)
+- [[urdf_kit y RobotDescription]] — cómo se deriva `RobotDescription` de un `.urdf` real
+- [[RobotNode]] · [[ControllerNode]] · [[PerceptionNode]] — el `node.py` de cada nodo ROS2 real
+- [[Commander (referencia de código)]] — `Commander` y `ControlSession`
+- [[Herramientas de CoppeliaSim]] — `coppeliasim_launcher.py`/`coppeliasim_scene_builder.py`
+- [[_cr5_protocol (protocolo TCP del CR5)]] — el módulo de protocolo detrás de [[Cr5RealRobotAdapter]]
+- [[_segment_geometry (geometría compartida)]] — la geometría pura detrás de los dos planificadores de obstáculos
 
 ## Referencias técnicas (viven en el propio repo, no en este vault)
 

@@ -43,3 +43,4 @@ CHOMP (gradiente) y RRT (muestreo), como nuevas `strategy` de
 - [[Puertos y Adaptadores]]
 - [[KinematicsPort]]
 - [[Estado del Roadmap]]
+- [[_segment_geometry (geometría compartida)]] — la geometría pura (distancia punto-segmento, intersección con esfera) que comparten los dos adaptadores reales

@@ -20,9 +20,12 @@ solo obedece y reporta.
 | [[CoppeliaSimRobotAdapter]] | Real, funcional |
 | [[Cr5RealRobotAdapter]] | Real, **verificado contra el robot físico (07/09)** |
 
+Quién los cablea: [[RobotNode]] (registro `_TARGETS`, referencia función por función).
+
 ## [[KinematicsPort]] — el "nodo controlador"
 
-`compute_trajectory(goal, current_configuration) -> Trajectory`. IK pura,
+`compute_trajectory(goal, current_configuration) -> Trajectory` +
+`forward_kinematics`/`link_poses` (parte formal desde el 08/09). IK pura,
 sin conocer la escena ni evitar nada.
 
 | Adaptador | Estado |
@@ -33,7 +36,13 @@ sin conocer la escena ni evitar nada.
 | `DhKinematicsAdapter` | Stub (`NotImplementedError`) — pendiente de tabla DH, Bloque 9 |
 | `NaiveTestKinematicsAdapter` / `StraightLineKinematicsAdapter` | Dobles de test, solo cablean el flujo |
 
-Detalle de los stubs/dobles de test: ver [[KinematicsPort]].
+Detalle de los stubs/dobles de test: ver [[KinematicsPort]]. Quién los
+cablea, junto con [[PlanningPort]] y [[PlannerSelectionPort]]: [[ControllerNode]]
+(registro `_TARGETS`, referencia función por función). **(08/09)**
+`forward_kinematics`/`link_poses` son ahora parte formal del puerto — de
+estos cinco, [[PoeKinematicsAdapter]] y [[CoppeliaSimIkKinematicsAdapter]]
+los implementan de verdad, los otros tres lanzan `NotImplementedError`
+(detalle en [[KinematicsPort]]).
 
 ## [[PlanningPort]] — como `KinematicsPort` pero consciente de la escena
 
@@ -43,8 +52,9 @@ Detalle de los stubs/dobles de test: ver [[KinematicsPort]].
 |---|---|
 | [[ObstacleAvoidingPlanningAdapter]] | Real — heurística geométrica (evita solo la trayectoria del tip) |
 | [[WholeBodyObstacleAvoidingPlanningAdapter]] | Real — evita con el cuerpo completo, no solo el tip |
+| [[SelfCollisionAwarePlanningAdapter]] | Real (08/09) — rechaza trayectorias con autocolisión, ignora `Scene` (obstáculos externos) a propósito |
 | `NaivePlanningAdapter` | Doble de test — ignora la `Scene` por completo |
-| CHOMP / RRT | Pendientes — Bloque 4. Los tres adaptadores de arriba son heurísticas/dobles deterministas, **no** técnicas de IA/búsqueda — CHOMP/RRT son el primer hito real hacia el objetivo de formación en IA. |
+| CHOMP / RRT | Pendientes — Bloque 4. Los cuatro adaptadores de arriba son heurísticas/dobles/comprobaciones deterministas, **no** técnicas de IA/búsqueda — CHOMP/RRT son el primer hito real hacia el objetivo de formación en IA. |
 
 ## [[PlannerSelectionPort]] — elige estrategia de planificación
 
@@ -61,12 +71,15 @@ streaming). Ver [[Scene y Percepción]] para el agregado en sí.
 |---|---|
 | `StaticPerceptionAdapter` | Real — fijo desde construcción |
 | [[FilePerceptionAdapter]] | Real — relee un fichero de texto entero en cada `get_scene()` |
-| [[PseudoPerceptionAdapter]] | Real — permite "inyectar" eventos con el tiempo, sin cámara real |
+| [[PseudoPerceptionAdapter]] | Real — permite "inyectar" eventos con el tiempo, sin cámara real. **Cableado en `PerceptionNode` desde el 08/09** (`perception_target="pseudo"` + topics `/perception/report_obstacle`/`report_object`) — ver [[PerceptionNode]]. |
 | Adaptador CoppeliaSim (ground truth simulado) | Pendiente — sin precedente en el repo de leer el radio de una esfera vía la API ZMQ |
 | Cámara real | Pendiente, bloqueado detrás de grounding (Bloque 3) |
+
+Quién los cablea: [[PerceptionNode]] (registro `if/elif`, no `_TARGETS` — ver por qué en esa nota).
 
 ## Ver también
 
 - [[Arquitectura Hexagonal]]
 - [[Commander y ControlSession]]
 - [[Estado del Roadmap]]
+- [[RobotNode]] · [[ControllerNode]] · [[PerceptionNode]] — referencia función por función de cada nodo que cablea estos puertos

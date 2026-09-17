@@ -106,3 +106,5 @@ el frame cinemático no son la misma pregunta.
 - [[Anatomía de un Nodo]]
 - [[PoeKinematicsAdapter]]
 - [[Conectar un Robot Nuevo]]
+- [[Herramientas de CoppeliaSim]] — referencia función por función de `build_scene`, la generalización de `build_cr5_scene` encontrada aquí
+- [[urdf_kit y RobotDescription]] — referencia función por función de `parse_urdf_file`, donde vive el bug de los `fixed` tras el tip

@@ -184,3 +184,5 @@ tienen su propio hueco en `node_config.py` y son las que más se olvidan.
 - [[Puertos y Adaptadores]]
 - [[Commander y ControlSession]]
 - [[CR5 vs Panda (Generalización)]] — puesta a prueba real de este mecanismo contra un robot de 7 GDL
+- [[Infraestructura ROS2 (ros2_kit)]] — referencia función por función de `messages.py`/`node_config.py`/`qos.py`/`runner.py`
+- [[RobotNode]] · [[ControllerNode]] · [[PerceptionNode]] — este patrón, instanciado función por función en cada nodo real
