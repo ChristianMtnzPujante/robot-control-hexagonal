@@ -25,6 +25,10 @@ setup(
             'cr5_first_contact_demo = robot_node.cr5_first_contact_demo:main',
             'cr5_repeated_joint1_moves_demo = robot_node.cr5_repeated_joint1_moves_demo:main',
             'cr5_disable_demo = robot_node.cr5_disable_demo:main',
+            'cr5_go_home_demo = robot_node.cr5_go_home_demo:main',
+            'cr5_semicircle_demo = robot_node.cr5_semicircle_demo:main',
+            'cr5_circle_demo = robot_node.cr5_circle_demo:main',
+            'cr5_wave_demo = robot_node.cr5_wave_demo:main',
         ],
     },
 )
