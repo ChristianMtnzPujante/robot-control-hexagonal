@@ -82,7 +82,7 @@ from shared_kernel import (
     Trajectory,
 )
 
-from .poe_adapter import _DEFAULT_CR5_DESCRIPTION
+from .poe_adapter import _DEFAULT_CR5_DESCRIPTION, IkIteration
 
 _CHAIN_NAME = "ee"
 
@@ -201,6 +201,14 @@ def _generator_vector(generator: Any) -> np.ndarray:
     return np.asarray(generator.vector(), dtype=float).ravel()
 
 
+def generator_to_twist_order(generator: np.ndarray) -> np.ndarray:
+    """[e12, e13, e23, e1i, e2i, e3i] -> (wx, wy, wz, vx, vy, vz), el orden
+    del twist de PoE (e12 = w_z, e13 = -w_y, e23 = w_x). Vale para columnas
+    del Jacobiano y para el logaritmo del motor de error."""
+    e12, e13, e23 = generator[:3]
+    return np.array([e23, -e13, e12, *generator[3:]])
+
+
 def _rotor_angle(motor: Any) -> float:
     """Ángulo de la rotación que contiene `motor` (0..π), a partir del
     escalar de su rotor: R = cos(θ/2) - sin(θ/2)·B."""
@@ -235,6 +243,7 @@ class GaKinematicsAdapter:
         # Nº de iteraciones de la última IK -- solo diagnóstico (demos de
         # comparación PoE/GA), no forma parte de KinematicsPort.
         self.last_iteration_count: Optional[int] = None
+        self.last_trace: List[IkIteration] = []
 
     # -- KinematicsPort -----------------------------------------------------
 
@@ -290,6 +299,7 @@ class GaKinematicsAdapter:
         goal_motor = _pose_to_motor(ga, goal)
         goal_position = _motor_translation(goal_motor)
         thetas = self._thetas(current_configuration)
+        self.last_trace = []
 
         for iteration in range(self._max_iterations):
             current_motor = self._ee_motor(thetas)
@@ -297,22 +307,32 @@ class GaKinematicsAdapter:
             error_motor = ga.Motor(goal_motor * current_motor.reverse())
             position_error = np.linalg.norm(goal_position - _motor_translation(current_motor))
             orientation_error = _rotor_angle(error_motor)
+            error_generator = _generator_vector(error_motor.log().evaluate())
+            record = IkIteration(
+                iteration=iteration,
+                thetas=thetas.copy(),
+                error=generator_to_twist_order(error_generator),
+                tip_distance=float(position_error),
+                orientation_angle=float(orientation_error),
+                step=None,
+            )
             if (
                 orientation_error < self._orientation_tolerance
                 and position_error < self._position_tolerance
             ):
+                self.last_trace.append(record)
                 self.last_iteration_count = iteration
                 positions = [
                     JointPosition(name, float(theta))
                     for name, theta in zip(self._joint_names, thetas)
                 ]
                 return JointConfiguration.create(positions).value
-            error_generator = _generator_vector(error_motor.log().evaluate())
             jacobian = self._geometric_jacobian(thetas)
             damping_sq = self._damping_factor * float(error_generator @ error_generator)
             step = jacobian.T @ np.linalg.solve(
                 jacobian @ jacobian.T + damping_sq * np.eye(6), error_generator
             )
+            self.last_trace.append(record._replace(step=step))
             thetas = thetas + step
 
         self.last_iteration_count = self._max_iterations

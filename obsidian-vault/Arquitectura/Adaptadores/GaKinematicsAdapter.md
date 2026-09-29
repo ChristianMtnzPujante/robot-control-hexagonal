@@ -65,6 +65,11 @@ del módulo y en [[Decisiones de Diseño Clave]].
   del motor en gafro no es el twist de se(3) en su parte traslacional.
 - `last_iteration_count`: diagnóstico (no parte del puerto), lo usa la
   comparativa. PoE tiene el mismo atributo desde el mismo día.
+- `last_trace` (29/09): una `IkIteration` por iteración de Newton-Raphson
+  (θ, error, distancia de la punta, ángulo, paso), también solo
+  diagnóstico. Definida en `poe_adapter.py` y compartida con PoE; el error
+  se guarda en el orden del twist (wx, wy, wz, vx, vy, vz) con
+  `generator_to_twist_order`, para restar las dos trazas directamente.
 
 ## Comparativa PoE vs GA en CoppeliaSim (17/09)
 
@@ -97,6 +102,46 @@ el solucionador.
 `link_poses` en GA es más lento porque hace 6 conversiones motor→`Pose`
 en Python; optimizable si un `PlanningPort` lo necesita en bucle.
 
+## Dónde se separan exactamente los dos cálculos (29/09)
+
+`cr5_poe_vs_gafro_simple_demo.py` (ver [[Scripts de Demostración]]) compara
+los internos de los dos adaptadores paso a paso. Lo que sale:
+
+| Paso | PoE | GA | ¿Igual? |
+|---|---|---|---|
+| Modelo | twist S_i = (w; v) en la base | eje (bivector local) + motor fijo F_i | mismos datos; FK en la home idéntica (5e-16) |
+| FK | e^[S1]θ1···M, matriz 4x4 | Π F_i·R_i(θ_i), motor | sí (< 1e-9 µm) |
+| Jacobiano | Ad_T·S_i | M·B_i·M̃, base [e12,e13,e23,e1i,e2i,e3i] | sí, tras reordenar (4e-16) |
+| Error, parte rotacional | log de so(3) | log del rotor | sí (1e-10) |
+| Error, parte traslacional | v = G(θ)⁻¹·p (tornillo) | t = traslación de M_goal·M̃ tal cual | **solo sin giro** |
+
+Números, desde `[0, 30, -60, 0, 40, 0]°`:
+
+- **Traslación pura** (8 cm en -X, 5 cm en -Z): error inicial idéntico (6e-17), las
+  mismas iteraciones (3) y la misma solución (0,15 mrad).
+- **Con giro** (objetivo = pose de `[20, 45, -80, 10, 60, 30]°`, 46,5° de
+  giro): la traslación del error difiere 0,17. PoE pide v = (0,206, 0,508,
+  0,004); GA pide t = (0,070, 0,500, 0,173). GA aleja la punta en la 1ª
+  iteración (100 → 197 mm) mientras corrige casi todo el giro, y tarda 6
+  iteraciones frente a 4. Acaban en la misma solución (0,11 mrad).
+
+Es decir: gafro calcula `log(T·R)` como si fuera `log T + log R`, que
+coincide con el twist solo a primer orden. Converge igual porque el paso
+va en la dirección correcta, pero con giros grandes da peores pasos.
+Si hiciera falta, bastaría con convertir t → G(θ)⁻¹·t antes del paso para
+tener el mismo error que PoE. No se ha hecho, para seguir comparando las
+dos álgebras tal como son.
+
+**Matiz al hallazgo del 17/09.** En la home (brazo estirado en vertical y
+`joint5 = 0`: Jacobiano de rango 3 de 6), las dos IK acaban 2° separadas,
+pero el álgebra no es la causa. Con traslación pura el error es idéntico
+y las cuentas coinciden hasta la iteración 2 (separación de 0,001 mrad).
+Al salir de la singularidad hay un paso enorme (la punta se va a 412 mm),
+el redondeo se amplifica y cada una cae en un punto distinto de la
+familia de soluciones. Donde hay redundancia, cualquier diferencia
+mínima (del álgebra o del redondeo) elige otra rama. La moraleja del 14/09
+se mantiene: la rama se fija por diseño.
+
 ## Lo que deja preparado (tesis)
 
 `self._system` es un `pygafro.System` completo: jacobianos de primitivas
@@ -107,3 +152,14 @@ separados) y el MPC conforme (Fase 4b).
 
 Pendiente, igual que en PoE: límites articulares, elección de rama, y la
 IK geométrica cerrada de `docs/algebra_geometrica_conforme.md` §5.
+
+**(23/09) Hacia dónde crece.** Hoy el adaptador solo hace lo que pide
+[[KinematicsPort]] (FK, `link_poses`, IK de pose a pose). Lo que
+distingue a CGA, las tareas por primitivas ("sigue esta línea"), iría en
+un puerto aparte que esta misma clase también cumpliría: residuo +
+Jacobiano por tarea, construidos con `Motor.apply` sobre `Line`/`Point`
+y el Jacobiano geométrico que ya usa `_geometric_jacobian`. Decisión
+abierta en [[Decisiones de Diseño Clave]] (23/09). Prueba numérica sobre
+el CR5 en `docs/cga_tareas_linea_prioridades.py`, que también fija los
+índices de blades de `pygafro.Line`: dirección = `e01i, e02i, e03i`,
+momento = `e23i, −e13i, e12i`.

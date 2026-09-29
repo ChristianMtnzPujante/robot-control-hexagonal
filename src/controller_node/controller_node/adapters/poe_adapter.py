@@ -34,7 +34,7 @@ comparación entre ambos vive en docs/comparativa_poe_vs_gafro_coppeliasim.md.
 from __future__ import annotations
 
 import math
-from typing import List, Optional, Tuple
+from typing import List, NamedTuple, Optional, Tuple
 
 import numpy as np
 
@@ -95,6 +95,22 @@ def _default_cr5_description() -> RobotDescription:
 
 
 _DEFAULT_CR5_DESCRIPTION = _default_cr5_description()
+
+
+class IkIteration(NamedTuple):
+    """Una iteración de Newton-Raphson, para comparar PoE y GA paso a paso
+    (`last_trace`, ver cr5_poe_vs_gafro_simple_demo.py). Solo diagnóstico,
+    no forma parte de KinematicsPort. `error` va siempre en el orden del
+    twist (wx, wy, wz, vx, vy, vz), también en GA (reordenado desde su base
+    de bivectores), para que las dos trazas se puedan restar directamente.
+    `step` es None en la iteración que cumple la tolerancia."""
+
+    iteration: int
+    thetas: np.ndarray
+    error: np.ndarray
+    tip_distance: float
+    orientation_angle: float
+    step: Optional[np.ndarray]
 
 
 def _validate_cr5_reference_if_applicable(description: RobotDescription) -> None:
@@ -385,6 +401,7 @@ class PoeKinematicsAdapter:
         # comparación PoE/GA, ver cr5_poe_vs_gafro_sim_demo.py), no forma
         # parte de KinematicsPort. Mismo atributo en GaKinematicsAdapter.
         self.last_iteration_count: Optional[int] = None
+        self.last_trace: List[IkIteration] = []
 
     def compute_trajectory(
         self, goal: Pose, current_configuration: JointConfiguration
@@ -435,6 +452,7 @@ class PoeKinematicsAdapter:
         thetas = np.array(
             [current_configuration.angle_of(name) for name in self._joint_names]
         )
+        self.last_trace = []
 
         for iteration in range(self._max_iterations):
             current_transform = _forward_kinematics(
@@ -444,10 +462,22 @@ class PoeKinematicsAdapter:
                 np.linalg.inv(current_transform) @ goal_transform
             )
             error_space = _adjoint(current_transform) @ error_body
-            if (
+            converged = (
                 np.linalg.norm(error_space[:3]) < self._orientation_tolerance
                 and np.linalg.norm(error_space[3:]) < self._position_tolerance
-            ):
+            )
+            record = IkIteration(
+                iteration=iteration,
+                thetas=thetas.copy(),
+                error=error_space.copy(),
+                tip_distance=float(
+                    np.linalg.norm(goal_transform[:3, 3] - current_transform[:3, 3])
+                ),
+                orientation_angle=float(np.linalg.norm(error_space[:3])),
+                step=None,
+            )
+            if converged:
+                self.last_trace.append(record)
                 self.last_iteration_count = iteration
                 positions = [
                     JointPosition(name, float(theta))
@@ -459,6 +489,7 @@ class PoeKinematicsAdapter:
             step = jacobian.T @ np.linalg.solve(
                 jacobian @ jacobian.T + damping_sq * np.eye(6), error_space
             )
+            self.last_trace.append(record._replace(step=step))
             thetas = thetas + step
 
         self.last_iteration_count = self._max_iterations

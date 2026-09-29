@@ -300,6 +300,94 @@ tomes una decisión de este tipo — ver [[Cómo usar este vault (Obsidian)]].
 > — misma pose, soluciones articulares distintas — lo que refuerza la
 > decisión del 14/09 de anclar la rama en espacio de articulaciones.
 
+> [!question] (23/09) ABIERTA — Tareas CGA por primitivas, en un puerto aparte, y planificador separado del ejecutor
+> **Contexto.** [[GaKinematicsAdapter]] cumple el [[KinematicsPort]]
+> igual que PoE: IK de pose a pose. Lo que distingue a CGA (restricciones
+> del tipo "sigue esta línea", "mantente sobre este plano") no tiene hueco
+> todavía. Surgió al preguntar hasta dónde llega el adaptador.
+>
+> **Hacia dónde apunta** (sin código de producción; las firmas se
+> definirán cuando exista el primer consumidor real, una demo de "sigue
+> esta línea" en CoppeliaSim):
+>
+> 1. **`KinematicsPort` no se extiende.** Es el denominador común de
+>    PoE/GA/DH/simulador. Métodos opcionales romperían la intercambiabilidad
+>    (PoE lanzando `NotImplementedError`, consumidores con `isinstance`).
+> 2. **Puerto nuevo de tareas** (provisional `GeometricTaskPort`): por
+>    tarea y configuración θ devuelve **(residuo e(θ), Jacobiano J(θ))**,
+>    no una `Trajectory`. Si devolviera la trayectoria resuelta, la lógica
+>    de planificación acabaría dentro del adaptador y no se podrían
+>    combinar tareas ("sigue la línea" + "evita la esfera"). La tarea tipo
+>    es la **incidencia**: la primitiva X del robot, movida por el motor
+>    (X(θ) = M X₀ M̃), cumple X ∧ A = 0, y ‖X ∧ A‖ es el residuo (para
+>    rectas y planos, la distancia). El paralelismo es aparte: dir(L) ∧
+>    dir(L_goal) = 0, que restringe 2 GDL.
+> 3. **Combinar restricciones en dos capas.** *Geométrica:* las
+>    restricciones duras sobre el mismo punto se fusionan con el meet,
+>    A∩B = (A*∧B*)* (plano∩plano = recta, esfera∩plano = círculo). El 0
+>    indica redundancia y un resultado en el infinito indica conflicto, sin
+>    resolver nada. Verificado en pygafro. *Numérica:* lo demás se apila o
+>    se prioriza con el proyector al espacio nulo N = I − J⁺J (la tarea 2
+>    solo usa movimientos que no alteran la 1; en la práctica es sustituir
+>    la solución general de la 1 en la 2). El meet no expresa pesos ni
+>    prioridades, y sobre objetos distintos (punto frente a dirección) no
+>    aplica.
+> 4. **Evitar obstáculos no es un meet.** Es una desigualdad (región), no
+>    una incidencia. Se trata como tarea activada por proximidad y con
+>    máxima prioridad, o en un QP/MPC. CGA sí da el diagnóstico: el signo
+>    de X·S* (dentro/fuera) y el del cuadrado de L∩S (atraviesa/tangente/no
+>    toca).
+> 5. **Separar planificador (global) y ejecutor (local).** El planificador
+>    emite tramos de primitivas combinadas con condición de fin, y los
+>    puntos de transición son intersecciones (L₁∩L₂, L∩Π). El ejecutor los
+>    resuelve con residuo + Jacobiano y prioridades. Al principio lo hace
+>    antes de enviar nada al robot y produce una `Trajectory`, así
+>    [[RobotNode]] no cambia; en línea más adelante (MPC, Fase 4b). CGA
+>    aporta ahí un lenguaje común: el plan describe la tarea ("sobre esta
+>    recta hasta este plano") en vez de enumerar poses, y se puede
+>    comprobar antes de ejecutarlo (F1.4, F1.6).
+>
+> **Qué NO aporta CGA:** la resolución numérica sigue siendo álgebra lineal
+> en ℝ⁶ (pseudoinversa, espacio nulo), igual que en PoE. La combinación con
+> meet o con apilado da **el mismo conjunto válido** pero no la misma
+> postura: cada residuo mide la distancia de forma distinta y converge a
+> otro punto de la familia de soluciones (≈1e-4 rad en la prueba). Es el
+> mismo fenómeno que PoE frente a GA del 17/09.
+>
+> **Pendiente de decidir:** (a) tipos neutros de `geometry_kernel` o tipos
+> conformes en el puerto (lo neutro matiza la decisión de bounded contexts
+> separados, ver [[Primitivas Geométricas]]); (b) bucle proponer →
+> verificar → replanificar entre planificador y ejecutor, porque un tramo
+> válido para el TCP puede no serlo para el brazo; (c) el tramo tiene que
+> poder fijar rama o configuración preferida (lección del 14/09); (d)
+> paralelo frente a antiparalelo: el residuo `Bᵀu` acepta los dos (la prueba
+> acabó con u·u_g = −1), hay que usar `u − u_g` si importa el sentido.
+>
+> Evidencia: `docs/cga_tareas_linea_prioridades.py` y
+> `docs/cga_meet_vs_apilado.py` (CR5 con pygafro). Detalle del día en
+> [[2026-09-23]].
+
+> [!tip] (29/09) Objetivo inicial: artículo de revisión + propuesta de ontología del dominio, con parte práctica
+> **Decisión.** El primer objetivo de trabajo pasa a ser redactar un
+> artículo que junte el hito de revisión del estado del arte ya previsto
+> en la Fase 1 con una **propuesta de ontología del dominio**: un lenguaje
+> común de objetos y relaciones para solvers clásicos, CGA y LLM. Lleva
+> una parte práctica: escenas de ejemplo definidas con este repo, descritas
+> en la ontología, traducidas a CGA y con capturas de CoppeliaSim, que se
+> proponen como banco para la fase siguiente (H1.1).
+>
+> **Motivo.** H4 (lenguaje común), H2.2 (tools con esquema CGA) y H3.1
+> (escena en CGA) dan por hecho ese lenguaje y ninguno lo define; H1.1
+> necesita describir su banco de forma neutra. Una ontología sola, sin
+> validar, tiene poco recorrido, y la revisión sola deja fuera el trabajo
+> práctico que ya existe en el repo. Juntas se refuerzan. Además es con
+> lo que el usuario quiere trabajar ahora.
+>
+> **Pendiente:** confirmarlo con el director (cambia el contenido del
+> primer hito) y comprobar la novedad frente a iTaSC/eTaSL, KnowRob, De
+> Laet et al. y Kamarianakis et al. Plan en [[Ontología del Dominio
+> (lenguaje CGA)]].
+
 ## Ver también
 
 - [[Estado del Roadmap]]

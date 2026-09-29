@@ -74,6 +74,17 @@ legítimamente devolver poses distintas.
   (`_approximate_inverse_kinematics`, no la cinemática real del CR5) para
   tener algo con lo que trazar una recta e interpolar.
 
+## Lo que NO va en este puerto (23/09, decisión abierta)
+
+Las tareas geométricas propias de CGA ("TCP sobre esta recta", "eje de la
+herramienta paralelo a ella", "sobre este círculo") **no se añaden aquí**,
+tampoco como métodos opcionales. Este puerto se queda como la IK de pose a
+pose que cualquier adaptador sabe hacer. Esas tareas irían en un puerto
+aparte (provisional `GeometricTaskPort`) que devuelve residuo + Jacobiano
+por tarea, para que un planificador o ejecutor las combine (meet,
+apilado, prioridades). Motivo y cuestiones abiertas en
+[[Decisiones de Diseño Clave]] (23/09).
+
 ## Ver también
 
 - [[Puertos y Adaptadores]]

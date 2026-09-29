@@ -12,13 +12,23 @@ entrada nueva por cada día de trabajo real, no por cada mensaje.
 
 Más reciente primero:
 
-- [[2026-09-29]] — **la pinza contesta por fin**: la vía era
-  `ModbusCreate("127.0.0.1",60000,9,1)`, no `ModbusRTUCreate`. Primera
-  secuencia brazo + pinza y prueba por ROS.
+- [[2026-09-29]] — la demo sencilla PoE vs GA explica el cálculo paso a
+  paso. La única diferencia es la parte traslacional del log del motor
+  (con giro, GA necesita más iteraciones). La diferencia de 2° en la home
+  es por la singularidad, no por el álgebra. **Nuevo objetivo inicial**:
+  artículo de revisión + propuesta de ontología del dominio, con escenas
+  de ejemplo del repo ([[Ontología del Dominio (lenguaje CGA)]]). Por la
+  tarde, **la pinza contesta por fin**: la vía era
+  `ModbusCreate("127.0.0.1",60000,9,1)`, no `ModbusRTUCreate`.
 - [[2026-09-24]] — pinza: el orden de configuración (alimentación antes
   de modo/formato) queda descartado, sigue en `-1`. El modo AI/485 del
   terminal no se puede leer. Adaptador USB-Ethernet en bucle de
   desconexión.
+- [[2026-09-23]] — diseño, sin código de producción: GA hoy solo cubre el
+  `KinematicsPort`. Decisión abierta: tareas CGA por primitivas en un
+  puerto aparte (residuo + Jacobiano), el meet para fusionar restricciones
+  sobre un mismo punto, y planificador separado del ejecutor. Ejemplos
+  numéricos sobre el CR5 en `docs/cga_*.py`.
 - [[2026-09-21]] — la pinza, acotada a tres candidatos: el sensor ATI queda
   fuera del bus (medida con la pinza desenchufada), se corrige la lectura de
   la polarización del 18/09 (los canales analógicos tenían 60 mV de desfase

@@ -359,6 +359,13 @@ robot?" de "¿funciona el resto del stack?". Precursores de
   5 cm en -Z (solución aislada: misma configuración articular, diferencia
   0,01°). Error real de la punta en CoppeliaSim < 0,01 mm en los cuatro
   casos; GA ~1,5× más rápida por IK. Escena limpia al arrancar.
+  **Desde el 29/09** explica el cálculo paso a paso con los números reales:
+  paso 0 (el modelo: twist frente a eje + motor fijo), y en cada prueba FK,
+  error inicial, Jacobiano (con valores singulares), tabla de iteraciones
+  lado a lado y resultado, con una lectura generada a partir de los
+  números. Tiene una prueba (3) nueva que también gira la punta, donde
+  aparece la diferencia real entre las dos álgebras. `--no-sim` imprime
+  solo los cálculos, sin CoppeliaSim. Hallazgos en [[GaKinematicsAdapter]].
 
 ## Ver también
 

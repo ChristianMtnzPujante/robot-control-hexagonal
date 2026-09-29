@@ -15,7 +15,7 @@ generación de código libre).
 Este vault es también mi primer proyecto real en Obsidian — si es la primera
 vez que lo abres, empieza por [[Cómo usar este vault (Obsidian)]].
 
-> [!info] Estado en una frase (17/09/2026)
+> [!info] Estado en una frase (29/09/2026)
 > Dos cinemáticas reales e intercambiables: PoE y **CGA/gafro**
 > ([[GaKinematicsAdapter]], desde el 17/09, comparadas en CoppeliaSim con
 > resultados idénticos en pose). `Scene`/percepción real (fichero + pseudo-perceptor) y
@@ -23,6 +23,9 @@ vez que lo abres, empieza por [[Cómo usar este vault (Obsidian)]].
 > real contra el CR5 físico (Bloque 0, commit `e009321`) **ya se ha probado
 > con éxito contra el robot físico de verdad** — primera IK real (PoE)
 > ejecutada de punta a punta, no solo contra servidores de mentira.
+> **Objetivo inicial desde el 29/09:** redactar el artículo de revisión +
+> propuesta de ontología del dominio, con escenas de ejemplo de este repo
+> ([[Ontología del Dominio (lenguaje CGA)]]).
 > Detalle en [[Estado del Roadmap]].
 
 ## Arquitectura
@@ -37,6 +40,7 @@ vez que lo abres, empieza por [[Cómo usar este vault (Obsidian)]].
 - [[Estado del Roadmap]] — resumen por Bloque (0–12) del `ROADMAP.md` real
 - [[Decisiones de Diseño Clave]] — decisiones no triviales, con fecha y motivo
 - [[Diario]] — registro día a día de qué se hizo y en qué orden
+- [[Ontología del Dominio (lenguaje CGA)]] — **objetivo inicial**: artículo de revisión + ontología del dominio (lenguaje común para solvers, CGA y LLM)
 
 ## Pruebas y guías prácticas
 

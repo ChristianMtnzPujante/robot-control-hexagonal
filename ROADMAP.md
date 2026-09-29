@@ -459,6 +459,22 @@ Bloque 0 #20/#110/#111/#112/#113):**
       paralelos → familia continua de soluciones; las dos IK dan soluciones
       articulares distintas (hasta 274 mrad) para la misma pose. Refuerza
       lo del 14/09: anclar la rama en articulaciones, no delegar en la IK.
+- [x] **(29/09)** `cr5_poe_vs_gafro_simple_demo.py` explica el cálculo paso
+      a paso con números reales (FK, error inicial, Jacobiano, tabla de
+      iteraciones, resultado; `--no-sim` para verlo sin CoppeliaSim), con
+      una prueba 3 nueva que cambia también la orientación. Los dos
+      adaptadores guardan `last_trace` (una `IkIteration` por iteración,
+      solo diagnóstico). *Hallazgo:* el Jacobiano es idéntico (4e-16 tras
+      reordenar la base) y la parte rotacional del error también; la
+      diferencia está en la traslacional. El `log()` del motor de gafro
+      devuelve la traslación del motor de error tal cual, mientras que el
+      twist de PoE es el tornillo v = G(θ)⁻¹·p. Con traslación pura son
+      idénticos; con 46,5° de giro la traslación difiere 0,17 y GA aleja
+      la punta en la 1ª iteración (100 → 197 mm) y tarda 6 iteraciones
+      frente a 4 (misma solución, 0,11 mrad). Y matiz a lo del 17/09: la
+      diferencia articular en la home (2°) NO viene del álgebra: las
+      cuentas son iguales hasta la iteración 2 y el redondeo se amplifica
+      al salir de la singularidad (Jacobiano de rango 3).
 - [x] Documento corto (para ti, no para nadie más) que traduzca: "plano de
       la mesa" → primitiva CGA, "objeto a evitar" → esfera/región CGA.
       Esto es lo que necesitará el Bloque 3. Ver
@@ -479,6 +495,86 @@ Bloque 0 #20/#110/#111/#112/#113):**
       traduce explícitamente entre ambas — cada `KinematicsPort`/
       `PlanningPort` consume la representación de su propia álgebra, no una
       forma neutra forzada entre las dos.
+- [ ] **(23/09) Decisión de diseño abierta: tareas CGA por primitivas y
+      separación planificador/ejecutor.** Surgió al preguntar hasta dónde
+      llega `GaKinematicsAdapter` (solo la IK de pose a pose, igual que PoE)
+      y dónde encajarían tareas como "sigue esta línea". Resultado de la
+      discusión, sin código de producción todavía:
+      - `KinematicsPort` **no se extiende**: se queda como IK de pose a pose,
+        el denominador común de PoE/GA/DH/simulador. Añadirle `follow_line`
+        obligaría a PoE a lanzar `NotImplementedError` y a los consumidores
+        a comprobar tipos con `isinstance`.
+      - **Puerto nuevo de tareas** (nombre provisional `GeometricTaskPort`):
+        para una restricción geométrica y una configuración θ devuelve el
+        par **(residuo e(θ), Jacobiano J(θ))**, no una trayectoria resuelta.
+        Lo implementaría GA (la misma clase puede cumplir los dos puertos).
+        Una tarea es "la primitiva X del robot (punto, recta del eje de la
+        herramienta) es incidente con la primitiva A": X ∧ A = 0. Aparte
+        quedan pocas especiales, como el paralelismo (sobre direcciones:
+        dir(L) ∧ dir(L_goal) = 0).
+      - **Combinar restricciones**: las restricciones duras sobre el MISMO
+        punto se fusionan geométricamente con el meet, A∩B = (A*∧B*)*. El
+        grado del resultado cuenta las ecuaciones independientes, un 0 indica
+        redundancia y un resultado en el infinito indica conflicto
+        (verificado en pygafro). El resto se combina en la capa numérica:
+        apilado, o prioridades con proyector al espacio nulo. El meet no
+        expresa pesos ni prioridades, y las desigualdades (evitar un
+        obstáculo) no son incidencias: van como tareas activadas por
+        proximidad, con máxima prioridad, o en un QP/MPC. Para diagnosticar
+        sí sirven los signos de X·S* (dentro/fuera) y del cuadrado del par
+        de puntos L∩S (atraviesa/tangente/no toca).
+      - **Separar planificador y ejecutor.** El planificador (global, Bloque
+        4) emite tramos de primitivas CGA combinadas con su condición de fin;
+        los puntos de transición son intersecciones (L₁∩L₂, L∩Π). El
+        ejecutor (local) los resuelve con residuo + Jacobiano y prioridades.
+        Al principio, integrando el tramo antes de enviarlo al robot y
+        produciendo una `Trajectory` en articulaciones, así `robot_node` no
+        cambia. Más adelante, en línea (MPC, Fase 4b). Encaja con F1.4
+        (tools con esquema CGA) y F1.6 (verificar antes de actuar).
+      - **Cuestiones abiertas:** (a) ¿tipos neutros de `geometry_kernel` o
+        tipos conformes en el puerto? (la opción neutra matiza la decisión de
+        bounded contexts de arriba); (b) el planificador necesita que el
+        ejecutor le confirme si un tramo es ejecutable para el brazo entero
+        (colisiones, límites, singularidades): bucle proponer → verificar →
+        replanificar; (c) el tramo debe poder fijar rama/configuración
+        preferida o una tarea secundaria (lección del 14/09); (d) paralelo
+        frente a antiparalelo: `Bᵀu = 0` acepta los dos, hay que usar `u − u_g`
+        si importa el sentido.
+      - **Evidencia numérica** (CR5, pygafro): `docs/cga_tareas_linea_prioridades.py`
+        (herramienta coaxial con una recta más avance de 10 cm: apilado
+        converge en 6 iteraciones; con prioridades, la tarea 1 se mantiene
+        en ~1e-5 mientras avanza; tras la prioridad 1 quedan 2 GDL libres;
+        los Jacobianos coinciden con diferencias finitas a ~4e-8) y
+        `docs/cga_meet_vs_apilado.py` (plano + esfera apilados frente a su
+        meet, el círculo: mismo conjunto válido, soluciones distintas en
+        ~1e-4 rad).
+      - **Siguiente paso** (cuando toque): definir las firmas a partir de un
+        primer consumidor real, una demo de "sigue esta línea" en
+        CoppeliaSim, no antes.
+- [ ] **(29/09) OBJETIVO INICIAL — artículo de revisión + propuesta de
+      ontología del dominio.** Fusiona el hito de revisión de la Fase 1 de
+      la tesis (F1.3) con la ontología de abajo, y añade una parte
+      práctica: escenas de ejemplo definidas con este repo (`Scene`,
+      `geometry_kernel`, ficheros de `FilePerceptionAdapter`,
+      `build_cr5_scene`), descritas en la ontología, traducidas a CGA y con
+      capturas de CoppeliaSim, propuestas como banco para la fase
+      siguiente (H1.1). Validación mínima: expresividad (las escenas se
+      describen), ejecutabilidad (una relación resuelta de punta a punta),
+      y uso por un LLM (opcional). Pendiente: confirmarlo con el director.
+      Plan en el vault, `Investigación/Ontología del Dominio (lenguaje CGA).md`.
+- [ ] **(29/09) Investigar: ontología del dominio / lenguaje propio.**
+      Definir los objetos y relaciones del dominio (robot, escena, objetos,
+      tareas) como un lenguaje completo que sirva a solvers clásicos (cada
+      término se traduce a residuo + Jacobiano o restricción), que exprese
+      sobre todo lo que da CGA (primitivas, incidencia, meet, signos) y que
+      sea un vocabulario común para un LLM. Sería el lenguaje de los
+      "tramos de primitivas" de la decisión del 23/09 (arriba). Pistas,
+      pendientes de leer: Task Frame Formalism / iTaSC (De Schutter,
+      Bruyninckx et al.); Kresse y Beetz (KnowRob), restricciones entre
+      features punto/línea/plano; De Laet, Bruyninckx et al., "Geometric
+      relations between rigid bodies: semantics for standardization" (IEEE
+      RAM, 2013). Nota: vault, `Investigación/Ontología del Dominio
+      (lenguaje CGA).md`.
 
 ## Bloque 2 — Investigación: estado del arte (en paralelo al resto)
 
@@ -715,6 +811,11 @@ Bloque 0 #20/#110/#111/#112/#113):**
 - [ ] Adaptador tipo CHOMP mínimo (gradiente, evita regiones/esferas CGA
       del Bloque 3) como nueva `strategy` de `controller_node` — mismo
       patrón que ya usa `_build_adapter`.
+      **(23/09)** Ver la decisión abierta del Bloque 1 "tareas CGA por
+      primitivas y separación planificador/ejecutor": CHOMP/RRT serían el
+      planificador global que emite tramos de primitivas CGA, y un
+      ejecutor local los resolvería con residuo + Jacobiano. CHOMP puede
+      usar directamente esos pares (e, J) como términos de coste.
 - [ ] Replanificación local cuando cambia el campo de obstáculos, sin
       ningún LLM en el bucle — esto es lo que hace segura la reactividad
       rápida.
