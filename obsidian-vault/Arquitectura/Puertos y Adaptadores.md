@@ -77,6 +77,20 @@ streaming). Ver [[Scene y Percepción]] para el agregado en sí.
 
 Quién los cablea: [[PerceptionNode]] (registro `if/elif`, no `_TARGETS` — ver por qué en esa nota).
 
+## [[GripperPort]] — la pinza
+
+`activate()`, `set_opening(fraction)`, `get_state() -> GripperState`,
+`close()`. Puerto aparte del robot: agarrar no es mover articulaciones, y
+hay robots sin pinza. Cómo entró en el repositorio:
+[[Integración de la Pinza]].
+
+| Adaptador | Estado |
+|---|---|
+| [[Robotiq2FGripperAdapter]] | Real, **verificado contra la pinza física (29/09)**; comparte el socket de [[Cr5RealRobotAdapter]] |
+| Simulación (CoppeliaSim) | Pendiente |
+
+Quién lo cablea: [[RobotNode]] (`gripper_target`).
+
 ## Ver también
 
 - [[Arquitectura Hexagonal]]

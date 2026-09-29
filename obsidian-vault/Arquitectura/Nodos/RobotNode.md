@@ -67,6 +67,30 @@ publicación y reintenta en el siguiente tick — sin este try/except, un
 hipo leyendo estado tumbaría el nodo tan fácil como uno enviando un
 comando.
 
+## Pinza: `_build_gripper` / `_on_gripper_activate` / `_on_gripper_command`
+
+Con el parámetro `gripper_target: robotiq_2f`, `_build_gripper()` crea un
+[[Robotiq2FGripperAdapter]] sobre el `command_socket` del adaptador del
+robot. Si el robot no es el real, falla al arrancar. Con `ninguna` (por
+defecto) no cambia nada. Topics: `gripper_activate` (`std_msgs/Empty`,
+mueve los dedos de tope a tope si no estaba activada) y `gripper_command`
+(`std_msgs/Float64`, 0.0 abierta … 1.0 cerrada). Los fallos se loggean y
+el nodo sigue vivo, igual que en `_on_joint_command`.
+
+**Estado (29/09): verificado por ROS contra la pinza real.**
+- Sin pinza (`gripper_target` por defecto, robot real): el nodo arranca
+  igual que antes y las órdenes a la pinza solo dejan un aviso
+  "ignorado".
+- Con `gripper_target:=robotiq_2f`: `/gripper_activate` (no hizo nada,
+  ya estaba activada) y `/gripper_command` 0.0 → 1.0 → 0.5, sin errores.
+  Lectura posterior: `opening=0.502` (128/255), lo pedido.
+
+Al parar con Ctrl+C sale `RCLError: rcl_shutdown already called`: es de
+`ros2_kit/runner.py` (ROS 2 Humble ya cierra el contexto con SIGINT y
+`shutdown_node` vuelve a llamar a `rclpy.shutdown()`), no de la pinza.
+`destroy_node()` se ejecuta antes, así que el cierre de la pinza y del
+robot sí se hace. Contexto completo en [[Integración de la Pinza]].
+
 ## `destroy_node()`
 
 **Corregido 07/09**: antes `robot_node` no cerraba/des-energizaba el
@@ -78,6 +102,8 @@ cierre. Ver [[Commander y ControlSession]] para el hallazgo de proceso
 zombie relacionado del mismo día.
 
 ## Ver también
+
+- [[GripperPort]] · [[Integración de la Pinza]]
 
 - [[RobotConnectorPort]]
 - [[Cr5RealRobotAdapter]]

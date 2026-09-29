@@ -58,3 +58,20 @@ class JointConfiguration:
             if p.joint_name == joint_name:
                 return p.angle_radians
         raise KeyError(f'No hay ninguna articulación llamada "{joint_name}"')
+
+
+@dataclass(frozen=True)
+class GripperState:
+    """Foto del estado de una pinza en un instante dado.
+
+    Deliberadamente NO es un Either con `create()` como JointPosition/
+    JointConfiguration: aquello valida datos que ENTRAN al dominio desde
+    fuera (un comando que puede venir mal), esto es una LECTURA ya hecha
+    por el adaptador, que o se pudo leer entera o lanzó un error. No hay
+    estado intermedio que validar.
+    """
+
+    opening: float  # 0.0 = completamente abierta, 1.0 = completamente cerrada
+    activated: bool
+    holding_object: bool  # ha parado por contacto, no por llegar a la posición
+    fault_code: int  # 0 = sin fallo; el resto, específico del fabricante

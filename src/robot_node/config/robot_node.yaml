@@ -75,7 +75,26 @@ parameters:
     type: double_array
     default: [360.0, 360.0, 160.0, 360.0, 360.0, 360.0]
 
+  # Qué pinza hay montada, si es que hay alguna. "ninguna" (por defecto)
+  # deja robot_node exactamente como estaba: un robot sin pinza no se
+  # entera de que esto existe. "robotiq_2f" exige robot_target="real",
+  # porque habla por el MISMO socket del CR5 (ver robotiq_2f_adapter.py).
+  gripper_target:
+    type: string
+    default: ninguna
+
 subscriptions:
+  # Activar la pinza es un movimiento de tope a tope (calibración), así que
+  # tiene topic PROPIO: esconderlo dentro de gripper_command haría que un
+  # "cierra un poco" moviera los dedos a fondo sin avisar.
+  - topic: gripper_activate
+    message_type: std_msgs/msg/Empty
+    qos: 10
+    callback: _on_gripper_activate
+  - topic: gripper_command
+    message_type: std_msgs/msg/Float64
+    qos: 10
+    callback: _on_gripper_command
   - topic: joint_command
     message_type: sensor_msgs/msg/JointState
     qos: 10

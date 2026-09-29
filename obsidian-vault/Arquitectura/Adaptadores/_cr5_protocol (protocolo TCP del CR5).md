@@ -85,6 +85,32 @@ más antigua acumulada en el buffer, no la posición actual del robot —
 justo lo contrario de lo que `RobotConnectorPort.get_current_configuration`
 promete.
 
+> [!bug] No reconecta, y el ciclo de energización le mata el stream (17/09)
+> `Cr5RealtimeSocket` se conecta en el `__init__` de
+> [[Cr5RealRobotAdapter]] y `read_joint_angles_deg` **no reintenta nunca**,
+> al revés que `Cr5CommandSocket.query`. Un `DisableRobot()`/`EnableRobot()`
+> entre medias —lo normal cuando el robot llega ya habilitado y hay que
+> des-energizarlo para que `RequestControl()` sea admisible— deja el socket
+> muerto y `get_current_configuration` falla con "timed out" de forma
+> permanente en esa instancia. Visto dos veces en la misma sesión bajando
+> el TCP a 40 cm: la primera abortó el recorrido **con el robot ya movido
+> un tramo**; la segunda, a mitad de camino, la salvó un reintento puesto
+> a mano. Pendiente en el ROADMAP (Bloque 0).
+
+## Otros hallazgos de protocolo del 17/09
+
+- **El 29999 admite un solo cliente.** Reconectando justo después de
+  cerrar, el controlador acepta el TCP y contesta con el texto
+  `Connection refused, IP:Port has been occupied` por el propio socket, en
+  vez de rechazar la conexión o devolver un código de error. `connect()`
+  no lo contempla: ese texto se colaría como respuesta del primer comando.
+- **Una ráfaga de comandos que fallan provoca un reset de la conexión**
+  (visto con `GetHoldRegs` contra un esclavo Modbus inexistente), el mismo
+  síntoma que el docstring ya documenta para comandos no admitidos en el
+  estado actual.
+- Comandos de E/S del extremo y de Modbus por el 485 de la brida:
+  ver [[E-S del Extremo del CR5 (pinza)]].
+
 ## Ver también
 
 - [[Cr5RealRobotAdapter]]

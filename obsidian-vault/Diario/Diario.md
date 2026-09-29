@@ -12,11 +12,30 @@ entrada nueva por cada día de trabajo real, no por cada mensaje.
 
 Más reciente primero:
 
+- [[2026-09-29]] — **la pinza contesta por fin**: la vía era
+  `ModbusCreate("127.0.0.1",60000,9,1)`, no `ModbusRTUCreate`. Primera
+  secuencia brazo + pinza y prueba por ROS.
+- [[2026-09-24]] — pinza: el orden de configuración (alimentación antes
+  de modo/formato) queda descartado, sigue en `-1`. El modo AI/485 del
+  terminal no se puede leer. Adaptador USB-Ethernet en bucle de
+  desconexión.
+- [[2026-09-21]] — la pinza, acotada a tres candidatos: el sensor ATI queda
+  fuera del bus (medida con la pinza desenchufada), se corrige la lectura de
+  la polarización del 18/09 (los canales analógicos tenían 60 mV de desfase
+  entre sí) y se prepara `cr5_485_scope_test.py` para mirar la señal con
+  osciloscopio.
+- [[2026-09-18]] — arquitectura del controlador del CR5 (puertos de red vs
+  puertos físicos, el controlador como puente Modbus), `GripperPort` +
+  `Robotiq2FGripperAdapter` con prueba por topic, y diagnóstico cerrado de
+  por qué la pinza no contesta: LED rojo fijo = `gFLT 0x09`, está viva pero
+  no le llegan los datos — es el cable.
 - [[2026-09-17]] — `GaKinematicsAdapter` real sobre `pygafro` (F1.2 de la
   tesis) tras cerrar la prueba de viabilidad F1.1 por la mañana: no hay
   nada que compilar, es una rueda de PyPI. Comparativa PoE vs GA en
   CoppeliaSim: misma pose, GA más rápida, y las dos IK reparten distinto la
-  redundancia de muñeca.
+  redundancia de muñeca. Y al final del día, sondeo de la pinza por el
+  conector de 8 pines del extremo: no contesta ni por 485 ni por las E/S
+  digitales — ver [[E-S del Extremo del CR5 (pinza)]].
 - [[2026-09-14]] — gesto de saludo con el CR5 (sim verificado, físico
   pendiente): arco de lado a lado con la herramienta inclinada hacia
   arriba, tras una corrección del usuario sobre una primera versión recta

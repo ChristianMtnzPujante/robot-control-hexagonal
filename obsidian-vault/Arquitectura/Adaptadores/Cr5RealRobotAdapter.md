@@ -103,6 +103,15 @@ cierra los sockets pase lo que pase, pero relanza el error si `disable()`
 falló). `RobotNode.destroy_node()` lo llama — cubre tanto el cierre
 normal de una `ControlSession` como un crash (ver [[Commander y ControlSession]]).
 
+## `command_socket`: compartir la conexión con la pinza
+
+Propiedad (18/09) que expone el `Cr5CommandSocket` del puerto 29999 para
+que otro adaptador hable por él. Hoy la usa [[Robotiq2FGripperAdapter]].
+No es parte de [[RobotConnectorPort]]. Existe porque el 29999 admite un
+solo cliente: compartir la conexión es la única forma de que la pinza
+hable con el controlador mientras este adaptador está vivo. Ver
+[[Integración de la Pinza]].
+
 ## Ver también
 
 - [[RobotConnectorPort]]

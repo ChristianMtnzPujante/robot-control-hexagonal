@@ -21,10 +21,12 @@ from ros2_kit import (
     to_pose,
 )
 from sensor_msgs.msg import JointState
-from shared_kernel import RobotConnectorError, RobotConnectorPort
+from std_msgs.msg import Empty, Float64
+from shared_kernel import GripperPort, RobotConnectorError, RobotConnectorPort
 
 from .adapters.coppeliasim_adapter import CoppeliaSimRobotAdapter
 from .adapters.cr5_real_adapter import Cr5RealRobotAdapter
+from .adapters.robotiq_2f_adapter import Robotiq2FGripperAdapter
 
 _CONFIG_PATH = package_config_path("robot_node", "robot_node.yaml")
 
@@ -96,8 +98,12 @@ class RobotNode(Node):
             cr5_joint_limits_degrees,
         )
 
+        gripper_target = self.get_parameter("gripper_target").value
+        self._gripper: Optional[GripperPort] = self._build_gripper(gripper_target)
+
         self.get_logger().info(
-            f'robot_node listo, target="{target}", joints={joint_names}'
+            f'robot_node listo, target="{target}", joints={joint_names}, '
+            f'pinza="{gripper_target}"'
         )
 
     def _build_adapter(
@@ -123,6 +129,67 @@ class RobotNode(Node):
             cr5_movj_cp,
             cr5_joint_limits_degrees,
         )
+
+    def _build_gripper(self, gripper_target: str) -> Optional[GripperPort]:
+        """No hay registro de factorías como _TARGETS todavía a propósito:
+        con una sola pinza real, un dict de un elemento sería ceremonia sin
+        beneficio. Cuando entre la segunda (o la de simulación), este if se
+        convierte en el mismo patrón que _TARGETS."""
+        if gripper_target == "ninguna":
+            return None
+        if gripper_target != "robotiq_2f":
+            raise ValueError(f'gripper_target desconocido: "{gripper_target}"')
+        # La Robotiq habla por el socket del CR5, así que exige el adaptador
+        # real -- fallar aquí, al arrancar, es mucho mejor que fallar en el
+        # primer gripper_command con un AttributeError.
+        command_socket = getattr(self._robot_controller, "command_socket", None)
+        if command_socket is None:
+            raise ValueError(
+                'gripper_target="robotiq_2f" necesita robot_target="real": la '
+                "pinza cuelga del RS-485 de la brida y habla por el mismo "
+                "socket del controlador del CR5."
+            )
+        return Robotiq2FGripperAdapter(command_socket)
+
+    def _on_gripper_activate(self, msg: Empty) -> None:
+        """OJO: si la pinza no estaba activada, esto MUEVE los dedos de tope
+        a tope (la 2F se calibra al activarse). Hace falta una vez por ciclo
+        de alimentación: sin ello la pinza ignora cualquier orden y responde
+        gFLT=0x07. Si ya estaba activada, no hace nada."""
+        if self._gripper is None:
+            self.get_logger().warn(
+                "llegó un gripper_activate pero gripper_target='ninguna' -- ignorado"
+            )
+            return
+        # activate() no hace nada si ya está activada (ver
+        # Robotiq2FGripperAdapter.activate), así que el aviso es condicional.
+        self.get_logger().warn(
+            "activando la pinza: si no lo estaba, los dedos van a moverse a fondo"
+        )
+        try:
+            self._gripper.activate()
+        except RobotConnectorError as error:
+            self.get_logger().error(f"Fallo activando la pinza: {error}")
+
+    def _on_gripper_command(self, msg: Float64) -> None:
+        """0.0 = abrir del todo, 1.0 = cerrar del todo.
+
+        Vuelve en cuanto la orden se ha aceptado, NO cuando los dedos han
+        terminado de moverse: Modbus no tiene valor de retorno útil para eso
+        (ver el docstring de GripperPort.set_opening). Quien necesite saber
+        si agarró algo, que lea gripper_state."""
+        if self._gripper is None:
+            self.get_logger().warn(
+                "llegó un gripper_command pero gripper_target='ninguna' -- ignorado"
+            )
+            return
+        try:
+            self._gripper.set_opening(float(msg.data))
+        except ValueError as error:
+            self.get_logger().error(f"gripper_command inválido: {error}")
+        except RobotConnectorError as error:
+            # Mismo criterio que _on_joint_command: loggear y seguir vivo.
+            self.get_logger().error(f"Fallo mandando gripper_command: {error}")
 
     def _on_joint_command(self, msg: JointState) -> None:
         configuration = to_joint_configuration(msg)
@@ -172,6 +239,11 @@ class RobotNode(Node):
         # ros2_kit.run_node) ni por un crash (mismo try/finally). Un fallo
         # cerrando no debe impedir el resto del cierre del nodo -- se
         # loggea, no se relanza.
+        if self._gripper is not None:
+            try:
+                self._gripper.close()
+            except RobotConnectorError as error:
+                self.get_logger().error(f"Fallo cerrando la pinza: {error}")
         try:
             self._robot_controller.close()
         except RobotConnectorError as error:

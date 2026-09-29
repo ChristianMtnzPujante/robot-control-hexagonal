@@ -31,6 +31,7 @@ setup(
             'real_cr5_first_session_demo = commander.real_cr5_first_session_demo:main',
             'poe_sim_then_real_demo = commander.poe_sim_then_real_demo:main',
             'poe_lift_and_wrist_demo = commander.poe_lift_and_wrist_demo:main',
+            'lift_and_grip_demo = commander.lift_and_grip_demo:main',
             'cr5_go_home_sim_demo = commander.cr5_go_home_sim_demo:main',
             'cr5_semicircle_sim_demo = commander.cr5_semicircle_sim_demo:main',
             'cr5_circle_sim_demo = commander.cr5_circle_sim_demo:main',

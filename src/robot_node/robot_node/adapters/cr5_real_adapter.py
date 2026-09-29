@@ -181,6 +181,19 @@ class Cr5RealRobotAdapter:
         # robot físico.
         self._enabled = False
 
+    @property
+    def command_socket(self) -> Cr5CommandSocket:
+        """El socket del 29999, para que OTRO adaptador pueda hablar por él
+        (hoy: Robotiq2FGripperAdapter). No es parte de RobotConnectorPort --
+        es un detalle de este adaptador concreto, igual que mark_goal lo es
+        de CoppeliaSimRobotAdapter.
+
+        Existe porque el 29999 admite UN SOLO CLIENTE: compartir esta
+        conexión no es una optimización, es la única forma de que un segundo
+        dispositivo (la pinza) pueda hablar con el controlador mientras este
+        adaptador está vivo."""
+        return self._commands
+
     def get_robot_mode(self) -> Tuple[int, str]:
         """Consulta RobotMode() y devuelve (código, descripción legible) --
         diagnóstico, no forma parte de RobotConnectorPort (eso son solo

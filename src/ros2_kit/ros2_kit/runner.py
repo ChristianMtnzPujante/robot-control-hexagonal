@@ -18,6 +18,9 @@ def run_node(node_factory: Callable[[], Node], args=None) -> None:
     node = node_factory()
     try:
         rclpy.spin(node)
+    except KeyboardInterrupt:
+        # Ctrl+C es la forma normal de parar un nodo: sin traza.
+        pass
     finally:
         shutdown_node(node)
 
@@ -28,4 +31,8 @@ def shutdown_node(node: Node) -> None:
     tanto no puede usar run_node() tal cual.
     """
     node.destroy_node()
-    rclpy.shutdown()
+    # Con Ctrl+C, rclpy (Humble) ya cierra el contexto en su manejador de
+    # SIGINT: un segundo rclpy.shutdown() lanza "RCLError: rcl_shutdown
+    # already called" (visto el 29/09 parando robot_node).
+    if rclpy.ok():
+        rclpy.shutdown()

@@ -208,6 +208,216 @@ Bloque 0 #20/#110/#111/#112/#113):**
       la trazabilidad "por qué esta QoS" que hoy vive en comentarios junto
       a cada valor.
 
+- [ ] **Efector final: el CR5 tiene una pinza montada por el conector de 8
+      pines de la brida, pero NO responde a ningún sondeo (17/09).** El
+      repo no tiene hoy nada de pinza (ni puerto, ni método en
+      `Cr5RealRobotAdapter`, ni comandos `ToolDO`/Modbus), y antes de
+      diseñar ese soporte hace falta saber POR DÓNDE se manda. Lo que se
+      sabe y lo que no, medido contra el robot físico:
+
+      El conector es el "End I/O" del manual de usuario del CR5 (Tabla 3.5,
+      cable Lumberg RKMV 8-354): pin 1 `AI_1/485A`, 2 `AI_2/485B`, 3 `DI_2`,
+      4 `DI_1`, 5 `24V (Out)`, 6 `DO_2`, 7 `DO_1`, 8 `GND`. O sea
+      alimentación + 2 DI + 2 DO + RS485 multiplexado con las analógicas,
+      y el modo por defecto del terminal multiplexado es **485** (manual
+      TCP/IP V4.6.5, `SetToolMode`) — por eso `ToolAI` devuelve 0 y no
+      significa nada mientras no se conmute a modo analógico.
+
+      Sondeo con el robot ENERGIZADO (modo 5, sin alarmas) y tras ciclar la
+      alimentación del extremo (`SetToolPower(0)` → `SetToolPower(1)`, que
+      el manual describe justo como "re-inicializar la pinza"):
+      `ToolDI(1)`=`ToolDI(2)`=0, `GetToolDO(1)`=`GetToolDO(2)`=0, y
+      **ningún esclavo Modbus RTU contesta**: `ModbusRTUCreate` crea el
+      maestro sin problema (eso solo abre el puerto en el lado del robot,
+      no prueba que haya esclavo) pero `GetHoldRegs` devuelve -1 en los 15
+      slave id (1-15) a 115200 8N1, y también en 9600/19200/38400/57600 y
+      en 115200 8E1 para los id 1 y 9. Tampoco hay nada en las E/S de la
+      caja de control (`digital_input_bits`/`digital_outputs` = 0).
+
+      Queda por descartar, en este orden: (a) que sea una pinza de control
+      DIGITAL por `ToolDO` — la prueba definitiva es conmutar `ToolDO`, que
+      MUEVE los dedos y por tanto exige a alguien delante; (b) parámetros
+      de 485 fuera de lo probado (7 bits, paridad impar, 230400/921600,
+      slave id >15); (c) que el cable de 8 pines solo le lleve corriente y
+      el control vaya por otro sitio (controlador propio de la pinza
+      cableado a la caja, no al brazo). Lo que desbloquea todo esto es
+      saber **marca y modelo**, que decide slave id, baudios y mapa de
+      registros.
+
+      **CORRECCIÓN (17/09, mismo día): el sondeo no valía para esta
+      pinza.** El usuario identificó el modelo: **Robotiq 2F Adaptive
+      Gripper** (2F-85/2F-140). Sus parámetros de fábrica son slave id
+      **9**, 115200 8N1 — que sí entraban en el barrido — pero su mapa de
+      registros NO: el estado se lee con FC03 en **0x07D0** (2000) y la
+      petición de acción se escribe en **0x03E8** (1000). El barrido
+      limpio solo leyó 0x0200 y 0x0000 para el id 9, direcciones que esta
+      pinza no implementa, y una dirección inexistente devuelve excepción
+      Modbus —que `GetHoldRegs` reporta como -1, idéntico a "nadie
+      contesta"—. O sea que **el resultado negativo no distingue "no hay
+      pinza en el 485" de "pregunté por la dirección equivocada"**. La
+      única pasada que sí probó 0x07D0 para el id 9 fue la primera, la que
+      iba desincronizada y hubo que descartar por poco fiable.
+
+      Prueba pendiente, con el robot encendido:
+      `ModbusRTUCreate(9,115200,"N",8,1)` y `GetHoldRegs(idx,2000,3)` —
+      debería devolver los registros de estado (gACT/gGTO/gSTA/gOBJ). Si
+      sigue sin contestar con la dirección correcta, el siguiente
+      sospechoso es el cableado del conector de 8 pines: **485A/485B
+      cruzados** es el fallo típico de un cable a medida, y encaja con
+      "alimenta pero nunca responde". Ojo también a que el 2F hay que
+      ACTIVARLO (escritura en 0x03E8) antes de que mueva, aunque para
+      responder a una lectura de estado no hace falta.
+
+      **RESUELTO A NIVEL DE DIAGNÓSTICO (18/09): el problema es el CABLE,
+      no el software.** Dato que lo cambia todo: con el extremo alimentado,
+      la pinza enciende un **LED rojo FIJO**. Según la tabla de fallos del
+      manual Robotiq (§4.4), rojo fijo es fallo MENOR, y de los dos
+      posibles (`0x08` exceso de temperatura, `0x09` "sin comunicación
+      durante al menos 1 segundo") solo encaja el segundo. Y es
+      concluyente por eliminación: si la pinza comunicara pero estuviera
+      sin activar, el LED sería AZUL (`0x07` es fallo de prioridad, LED
+      azul). O sea: **está viva, alimentada, y NO le llegan los datos**.
+
+      Descartado ya TODO lo que se puede descartar por software, en esta
+      orden: dirección correcta (2000, FC03); slave id 9 y barrido
+      completo 1-16; 115200 8N1 y también 8E1; `SetToolPower(1)`
+      confirmado con `0,{}` (y ciclado off/on); robot energizado (modo 5)
+      además de des-energizado; y `SetToolMode(1)` + `SetTool485` para
+      forzar el terminal multiplexado a 485 por si alguien lo había
+      dejado en analógico. Nada contesta en ningún caso.
+
+      Queda UN sospechoso, tras leer las figuras 3-9/3-5.1 del manual
+      Robotiq (que pdftotext no renderiza -- hay que abrir el PDF):
+      **el par de datos cruzado**. El cable de dispositivo de Robotiq es
+      de 8 polos pero solo usa 4 señales: pin 1 `24V`, pin 2 `GND`, pin 3
+      `RS485+`, pin 4 `RS485-`. El mapeo a la brida del CR5 debería ser
+      1->5 (24V), 2->8 (GND), y 3/4 -> 1/2 (485A/485B). **Que la pinza
+      encienda demuestra que 1 y 2 están bien**; lo único sin verificar es
+      3/4, y ahí la correspondencia `485+`/`485-` <-> `485A`/`485B` NO es
+      estándar (en TIA/EIA-485 la "A" es la invertida, pero medio sector
+      la etiqueta al revés). Además el montaje del laboratorio va con un
+      cable INTERMEDIO, y la propia figura 3-9 dibuja el extremo macho y
+      el hembra con los pines 3 y 4 en posiciones espejadas -- el
+      fabricante avisa del error precisamente porque es el habitual.
+      Un espejado COMPLETO está descartado: pondría los 24V en `DI_1` y la
+      pinza no encendería.
+
+      DESCARTADO (corregido el 18/09): la hipótesis de "`485 GND` sin
+      conectar" no aplica. El acoplamiento tiene ese pin (el 10 de su
+      bornera de 10), pero **el cable de dispositivo de Robotiq solo lleva
+      4 conductores y no lo incluye**, así que su ausencia es lo normal.
+
+      DESCARTADO (24/09): el orden de configuración. Sospecha: como
+      `SetToolPower` resetea la conexión del 29999, quizá reinicia la
+      placa del extremo y deshace un `SetToolMode`/`SetTool485` previo.
+      Con alimentación PRIMERO y luego modo 485 + formato + maestro,
+      `GetHoldRegs(0,2000,3)` sigue en `-1`, cada uno a 0,50 s exactos
+      (el controlador espera respuesta, no rechaza al instante), sin
+      alarmas. `docs/cr5_485_scope_test.py` queda con el orden nuevo.
+      Sin espera entre `SetToolPower` y el resto (0,01 s toda la
+      configuración): igual, `-1`. Ojo: la herramienta ya estaba
+      alimentada, así que no cubre un arranque en frío.
+      Otros códigos de función, mismo resultado (`-1`, 0,50 s todos):
+      FC04 `GetInRegs`, FC01 `GetCoils` y FC02 `GetInBits` (no
+      soportadas por la pinza: habrían provocado una excepción Modbus si
+      la trama llegara) y FC16 `SetHoldRegs(1000,{0,0,0})` (rACT=0, no
+      mueve). El fallo no depende del tipo de petición.
+      Barrido de velocidad con el orden nuevo: 2400-230400 bps × N/E/O,
+      slave 9: `-1` en todas, 0,50 s fijos (el timeout no depende de la
+      velocidad). Repite el negativo del 18/09 y añade 2400/4800.
+      No hay `GetToolMode` ni campo en el 30004: el modo del terminal no
+      se puede leer, solo fijar.
+      Aparte: el adaptador USB-Ethernet (ASIX AX88179) entró en bucle de
+      desconexión cada 3-4 s (~240 en 30 min) — mismo fallo que el 21/09,
+      peor. Sospechoso de puerto/cable USB.
+      Cortocircuito accidental al pinchar la brida con el osciloscopio
+      (24/09): alarma **1487** (no está en las tablas de `rosdemo_v4`),
+      modo 9. Se recupera con `ClearError()` -> modo 4, y `SetToolPower(1)`
+      vuelve a dar `0` sin alarma. La medida anterior a eso no vale: las
+      sondas estaban en los pines 7/3, no en el 1/2.
+
+      **RESUELTO (29/09): el problema era el COMANDO, no el cable.**
+      `ModbusRTUCreate` no llega al 485 de la brida. A la brida se llega con
+      `ModbusCreate("127.0.0.1",60000,9,1)` (paso directo del controlador
+      al extremo), tras `SetToolPower(1)`, `SetToolMode(1)` y
+      `SetTool485(115200,"N",1)`. La pinza contestó a la primera, en 0,02 s:
+      `{256,2304,768}` → gFLT=0x09 (el LED rojo fijo de siempre), gPO=3.
+      Reset + activación (`SetHoldRegs(...,{0,0,0})` → `{256,0,0}`) dejan
+      gSTA=3 y gFLT=0x00. Orden de bytes confirmado: byte alto primero.
+      Fuente: ejemplo oficial Dobot+ "Control End Gripper"
+      (`examples/Basic/grip`, una Robotiq EPick) y la doc V3 del protocolo
+      ("60000 terminal transparent port"); el manual V4.6.5 no lo dice.
+      Adaptador y `docs/cr5_485_scope_test.py` cambiados a esa vía.
+      Abrir/cerrar verificado el mismo día (vel/fuerza 64): cierra y abre
+      en 1,8 s, topes reales `gPO` 3 (abierta) y 228 (cerrada sin objeto),
+      corriente en vacío ≤ 110 mA. Con gFLT=0x09 activo (2 s sin hablarle)
+      la pinza ACEPTA la orden y el fallo se borra: no hace falta sondeo
+      continuo para mandar órdenes. Pendiente: confirmar si
+      `ModbusRTUCreate` sale por el 485 del armario
+      (`docs/cr5_controller485_probe.py`); `opening` = gPO/255 da ~0,89 con
+      la pinza cerrada del todo (topes 3-228).
+      Ajustes tras leer el SDK oficial de Robotiq (`robotiq/grippers`):
+      `activate()` ya NO reactiva una pinza activada y sin fallo grave
+      (reactivar la abre y cierra entera y suelta lo agarrado), y
+      `fault_code` toma solo los bits 0-3 del byte 2 (los 4-7 son kFLT).
+      Chuleta de uso en el vault: "Pinza Robotiq 2F - Uso práctico".
+      **Primera secuencia brazo + pinza (29/09):**
+      `commander/lift_and_grip_demo.py` sube el TCP 5 cm (PoE, 21
+      waypoints), espera a RobotMode()==5 y abre/cierra la pinza por el
+      mismo socket, con `Cr5RealRobotAdapter` + `Robotiq2FGripperAdapter`.
+      Contra el robot real: subida medida +49,9 mm, desvío XY 0,0 mm; la
+      pinza abrió (0,01) y cerró (0,90) sin fallo. Es la primera prueba
+      del ADAPTADOR de la pinza (no de un script suelto) contra hardware;
+      falta el camino ROS (topics de robot_node).
+      **Camino ROS verificado (29/09):** `robot_node` real con
+      `gripper_target:=robotiq_2f`, órdenes 0.0 → 1.0 → 0.5 por
+      `/gripper_command`, leído 0,502. Sin pinza configurada, solo avisos.
+      El adaptador ahora marca la pinza como no disponible tras un `-1`
+      (no vuelve a ocupar el socket del brazo hasta `close()`), y
+      `robot_node/package.xml` declara `std_msgs`. Pendiente:
+      `gripper_state`; el `RCLError` al parar con Ctrl+C es de
+      `ros2_kit/runner.py` (doble `rclpy.shutdown()`), no de la pinza.
+
+- [ ] **`load` = 0 kg con una herramienta calibrada (17/09).** La trama
+      real-time dice `toolCoordinate`=1 con un TCP de
+      (-18.08, -45.23, 152.85) mm — alguien midió el efector y lo guardó —
+      pero `load` y el centro de masa están a 0. El controlador cree que va
+      descargado: afecta a la compensación de gravedad y a los umbrales de
+      detección de colisión (los mismos que dispararon la alarma [76] del
+      semicírculo). Si la pinza pesa algo apreciable, falta configurar
+      `PayLoad(peso, excentricidad)`.
+
+- [ ] **Hallazgo de protocolo (17/09): el puerto 29999 admite UN SOLO
+      cliente.** Reconectando justo después de cerrar, el controlador
+      acepta el TCP y contesta literalmente
+      `Connection refused, IP:Port has been occupied` durante unos
+      segundos, en vez de rechazar la conexión o devolver un código de
+      error del protocolo. `Cr5CommandSocket.connect` no contempla ese
+      caso: hoy daría por buena la conexión y ese texto se colaría como
+      respuesta del primer comando. Además, una ráfaga de comandos que
+      fallan (`GetHoldRegs` contra un esclavo inexistente) acaba con el
+      controlador **reseteando la conexión** — mismo síntoma ya
+      documentado en `_cr5_protocol.py` para comandos no admitidos en el
+      estado actual, no un error limpio.
+
+- [ ] **`Cr5RealtimeSocket` no reconecta nunca, y el ciclo de energización
+      le mata el stream (17/09, visto en vivo dos veces).** El socket de
+      30004 se abre en el `__init__` de `Cr5RealRobotAdapter` y
+      `read_joint_angles_deg` no tiene ningún reintento, a diferencia de
+      `Cr5CommandSocket.query`, que sí reconecta sola. Si entre la
+      construcción del adaptador y la primera lectura pasa un
+      `DisableRobot()`/`EnableRobot()` —lo normal cuando el robot llega ya
+      habilitado y hay que des-energizarlo para que `RequestControl()` sea
+      admisible— el stream se muere y `get_current_configuration` falla con
+      "timed out" para SIEMPRE en esa instancia. Pasó bajando el TCP a
+      40 cm: el adaptador mandó el primer `MovJ` (el robot SE MOVIÓ) y
+      luego no pudo leer dónde había quedado. Y no es un caso de borde:
+      con el reintento puesto a mano en el script, el stream volvió a
+      caerse a mitad del recorrido (tramo 15 de 18) y solo siguió porque
+      había reconexión. Arreglo natural: que `read_joint_angles_deg`
+      reconecte igual que `query`, y/o que la conexión de 30004 sea
+      perezosa en vez de hacerse en el `__init__`.
+
 ## Bloque 1 — Investigación: álgebra geométrica conforme (CGA)
 
 > **Tesis:** Fase 1 · Objetivo H2.1 (`F1.1` viabilidad de `pygafro`,

@@ -13,7 +13,7 @@ from typing import List, Protocol
 from geometry_kernel import Pose, Scene
 
 from .trajectory import Trajectory
-from .value_objects import JointConfiguration
+from .value_objects import GripperState, JointConfiguration
 
 
 class RobotConnectorError(Exception):
@@ -130,3 +130,37 @@ class PlannerSelectionPort(Protocol):
     """
 
     def select(self, scene: Scene) -> str: ...
+
+
+class GripperPort(Protocol):
+    """Una pinza: abrir, cerrar y decir qué está pasando. Puerto APARTE de
+    RobotConnectorPort a propósito -- agarrar no es mover articulaciones, y
+    hay robots sin pinza, así que meter esto en el puerto del robot rompería
+    el "la misma imagen sirve para cualquier robot" que es su razón de ser.
+
+    Los fallos se reportan como RobotConnectorError (la misma familia que el
+    puerto del robot) en vez de con una excepción propia: hoy la única
+    implementación real habla por el MISMO socket del CR5 y ya lanza
+    Cr5ProtocolError, que es un RobotConnectorError. Si algún día una pinza
+    llega por un canal independiente (USB-485, Modbus TCP), esto merece su
+    propio GripperError.
+    """
+
+    def activate(self) -> None:
+        """Deja la pinza lista para obedecer. Si ya lo está, no debe hacer
+        nada. Si no, en la Robotiq 2F hace un recorrido COMPLETO de
+        calibración: mueve los dedos y suelta lo que tuviera agarrado."""
+        ...
+
+    def set_opening(self, fraction: float) -> None:
+        """0.0 = abrir del todo, 1.0 = cerrar del todo. Vuelve en cuanto la
+        orden se ha aceptado, NO cuando el movimiento ha terminado -- para
+        eso, sondear get_state()."""
+        ...
+
+    def get_state(self) -> GripperState: ...
+
+    def close(self) -> None:
+        """Libera lo que el adaptador tenga abierto (un maestro Modbus, un
+        cliente de simulador...). Mismo criterio que RobotConnectorPort.close."""
+        ...

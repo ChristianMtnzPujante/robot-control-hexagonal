@@ -9,6 +9,7 @@ from .errors import (
     TrajectoryVerificationFailedError,
 )
 from .ports import (
+    GripperPort,
     KinematicsPort,
     PerceptionPort,
     PlannerSelectionPort,
@@ -18,7 +19,7 @@ from .ports import (
 )
 from .robot_description import JointDescription, JointType, RobotDescription
 from .trajectory import Trajectory
-from .value_objects import JointConfiguration, JointPosition
+from .value_objects import GripperState, JointConfiguration, JointPosition
 
 __all__ = [
     "Either",
@@ -32,6 +33,7 @@ __all__ = [
     "TrajectoryVerificationFailedError",
     "InvalidRobotDescriptionError",
     "JointPosition",
+    "GripperState",
     "JointConfiguration",
     "JointType",
     "JointDescription",
@@ -44,6 +46,7 @@ __all__ = [
     "Trajectory",
     "RobotConnectorError",
     "RobotConnectorPort",
+    "GripperPort",
     "KinematicsPort",
     "PerceptionPort",
     "PlanningPort",

@@ -90,6 +90,15 @@ cableado. Resultados numéricos y hallazgos ya analizados en
   cortando el movimiento a mitad de camino (mismo patrón de causa que el
   de `poe_sim_then_real_demo.py`, corregido igual: esperar a
   `RobotMode()==5` antes de actuar).
+- **`lift_and_grip_demo.py`** (29/09) — primera secuencia brazo + pinza:
+  sube el TCP `--lift-meters` (5 cm por defecto, PoE sobre la postura real
+  actual), espera a `RobotMode()==5` y abre y cierra la pinza con
+  `Robotiq2FGripperAdapter` sobre el socket del propio
+  `Cr5RealRobotAdapter` (el 29999 admite un solo cliente). Fases `plan`
+  (solo calcula), `sim` (sin pinza) y `real`. Reutiliza las funciones de
+  `poe_lift_and_wrist_demo.py`. Resultado real: +49,9 mm, 0,0 mm de
+  desvío XY, pinza 0,01 → 0,90 sin fallo. Ver
+  [[Pinza Robotiq 2F - Uso práctico]].
 - **`real_cr5_first_session_demo.py`** — primera vez que el camino REAL
   completo de la arquitectura (`Commander → ControlSession →
   controller_node → robot_node → Cr5RealRobotAdapter`) se prueba contra
