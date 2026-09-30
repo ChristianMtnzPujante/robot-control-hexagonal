@@ -10,7 +10,8 @@ todo. Para **usar** la pinza, ver [[Pinza Robotiq 2F - Uso práctico]].
 
 > [!info] En git desde el 29/09
 > Todo lo de abajo entró en el commit "Pinza Robotiq 2F: GripperPort +
-> adaptador por el 485 de la brida…", en la rama `pinza-robotiq-2f`.
+> adaptador por el 485 de la brida…" (`2e387cb`), ya en `main`. La pinza
+> en simulación (30/09) entró en un commit posterior, también en `main`.
 
 ## Idea de diseño
 
@@ -149,7 +150,7 @@ TCP, así que se deja fuera del adaptador.
 | El camino ROS (`robot_node` + topics) | Nodo real con `gripper_target:=robotiq_2f`, órdenes por topics | ✅ 29/09: 0.0 → 1.0 → 0.5, leído 0,502 |
 | El nodo sin pinza no cambia | Nodo real con `gripper_target` por defecto | ✅ 29/09: solo avisos "ignorado" |
 | `gripper_state` publicado | — | ⏳ no existe todavía |
-| Pinza en simulación | — | ⏳ no existe |
+| Pinza en simulación | `cr5_gripper_sim_demo` y `lift_and_grip_demo --phase sim`, con [[CoppeliaSimGripperAdapter]] | ✅ 30/09: pinza montada en la brida, abre/cierra y gira con la muñeca |
 
 ## Historia corta
 
@@ -164,6 +165,11 @@ TCP, así que se deja fuera del adaptador.
   cambia a esa vía y se ajusta según el SDK oficial de Robotiq
   (`activate()` no reactiva; `gFLT` solo bits 0-3). Primera secuencia
   brazo + pinza.
+- **30/09**: pinza en simulación. URDF oficial de la 2F-85 copiado a
+  `assets/robotiq_2f_85/`, montado en la brida del CR5 por
+  `coppeliasim_scene_builder` (`ToolMount`) y movido con
+  [[CoppeliaSimGripperAdapter]]. Un URDF por pieza, no uno combinado:
+  ver [[Decisiones de Diseño Clave]].
 
 ## Pendiente
 

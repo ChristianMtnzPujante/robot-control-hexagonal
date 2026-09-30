@@ -54,6 +54,16 @@ es dominio puro y no debe saber qué es CoppeliaSim.
   cargada ni el estado de simulación: solo garantiza que hay una instancia
   escuchando en `port` (la lanza si hace falta). El punto de partida es la
   escena en blanco (o lo que ya hubiera, si se reutiliza instancia).
+- **`mounts=[ToolMount...]`** (30/09, opcional en `build_cr5_scene` y
+  `build_scene`, vacío por defecto) — herramientas importadas desde **su
+  propio URDF** y colgadas de un joint del robot (`parent_joint`, más
+  `offset_pose`). Se montan con el robot aún a cero, antes de la postura
+  inicial, y quedan hijas del joint (así cuelga simURDF los links),
+  cinemáticas y no dinámicas como el robot. Constante
+  `ROBOTIQ_2F_85_ON_CR5` (2F-85 en `joint6`, sin acoplador) y
+  `robotiq_2f_85_gripper(port)`, que devuelve su
+  [[CoppeliaSimGripperAdapter]]. Por qué un URDF por pieza: [[Decisiones
+  de Diseño Clave]] (30/09).
 - **`build_cr5_scene(port, initial_configuration, scene)`** — envoltorio
   de `build_scene` con las constantes del CR5 (`_CR5_URDF_PATH`,
   `_CR5_JOINT_NAMES`, `_CR5_TIP_NAME`...), conservado por compatibilidad

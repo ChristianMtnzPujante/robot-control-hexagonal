@@ -31,7 +31,9 @@ frontera hexagonal, dirección opuesta.
 from __future__ import annotations
 
 import time
-from typing import List
+from dataclasses import dataclass
+from pathlib import Path
+from typing import List, Sequence, Tuple
 
 from coppeliasim_zmqremoteapi_client import RemoteAPIClient
 from shared_kernel import JointConfiguration, Scene
@@ -56,6 +58,46 @@ _CR5_TIP_NAME = "Link6_visual"
 #   128 = alternateLocalRespondableMasks (default del importador)
 _IMPORT_OPTIONS = 8 + 32 + 128
 
+# assets/ vive en la raíz del repo (ver assets/robotiq_2f_85/README.md).
+# resolve() hace falta con `colcon build --symlink-install`: sin él,
+# __file__ apunta a build/ y parents[3] no sería la raíz.
+_ASSETS_DIR = Path(__file__).resolve().parents[3] / "assets"
+
+
+@dataclass(frozen=True)
+class ToolMount:
+    """Una herramienta (pinza, más adelante una cámara...) importada desde
+    su PROPIO URDF y colgada de un joint del robot -- en vez de un URDF
+    combinado robot+herramienta: cada pieza es un puerto distinto
+    (RobotConnectorPort, GripperPort...) y puede no estar, y el URDF del
+    robot es el que leen PoE/GA, verificado al micrómetro contra esta misma
+    escena. Ver "Decisiones de Diseño Clave" en el vault (30/09).
+
+    `parent_joint` es el joint del robot del que cuelga (joint6 = brida del
+    CR5); `offset_pose` es la pose [x y z qx qy qz qw] de la base de la
+    herramienta respecto al frame de ese joint con el robot a cero -- por
+    defecto, justo en la brida sin girar. `root_link_visual_alias` sirve
+    para localizarla, igual que el de `build_scene`."""
+
+    urdf_path: str
+    urdf_package_prefix: str
+    parent_joint: str
+    root_link_visual_alias: str
+    offset_pose: Tuple[float, ...] = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0)
+
+
+ROBOTIQ_2F_85_URDF_PATH = str(_ASSETS_DIR / "robotiq_2f_85/urdf/robotiq_2f_85.urdf")
+ROBOTIQ_2F_85_DRIVEN_JOINT = "robotiq_85_left_knuckle_joint"
+# Montaje directo en la brida del CR5, sin acoplador intermedio: el eje z de
+# Link6 sale de la brida y los dedos de la 2F-85 apuntan a +z desde su base.
+# Si el acoplador real añade altura, va en offset_pose.
+ROBOTIQ_2F_85_ON_CR5 = ToolMount(
+    urdf_path=ROBOTIQ_2F_85_URDF_PATH,
+    urdf_package_prefix=str(_ASSETS_DIR) + "/",
+    parent_joint="joint6",
+    root_link_visual_alias="robotiq_85_base_link_visual",
+)
+
 
 def ensure_coppeliasim_running(
     port: int, settings_suffix: str, timeout: float = 90.0
@@ -79,6 +121,7 @@ def build_cr5_scene(
     port: int,
     initial_configuration: JointConfiguration,
     scene: Scene,
+    mounts: Sequence[ToolMount] = (),
 ) -> "CoppeliaSimRobotAdapter":
     """Envoltorio de `build_scene` con los datos concretos del CR5 --
     conservado por compatibilidad con los demos que ya lo llaman así
@@ -95,6 +138,7 @@ def build_cr5_scene(
         root_link_visual_alias="dummy_link_visual",
         initial_configuration=initial_configuration,
         scene=scene,
+        mounts=mounts,
     )
 
 
@@ -107,6 +151,7 @@ def build_scene(
     root_link_visual_alias: str,
     initial_configuration: JointConfiguration,
     scene: Scene,
+    mounts: Sequence[ToolMount] = (),
 ) -> "CoppeliaSimRobotAdapter":
     """Construye desde cero, en la escena actualmente cargada en el puerto
     `port`: el robot importado de `urdf_path`, en la postura
@@ -163,6 +208,10 @@ def build_scene(
     for name in joint_names:
         handle = sim.getObject(f"/{name}")
         sim.setJointMode(handle, sim.jointmode_kinematic)
+    # Las herramientas se montan ANTES de poner la postura inicial: con el
+    # robot a cero, el frame de cada joint es el de su link hijo.
+    for mount in mounts:
+        _mount_tool(sim, simURDF, mount)
     for position in initial_configuration.positions:
         handle = sim.getObject(f"/{position.joint_name}")
         sim.setJointPosition(handle, position.angle_radians)
@@ -175,6 +224,50 @@ def build_scene(
     for obstacle in scene.obstacles.values():
         robot.mark_obstacle(obstacle)
     return robot
+
+
+def _mount_tool(sim, simURDF, mount: ToolMount) -> None:
+    """Importa `mount.urdf_path` en el origen del mundo y lo cuelga de
+    `mount.parent_joint`, que debe estar todavía a cero. Hija del JOINT (no
+    del shape del link) porque así cuelga simURDF los propios links: el
+    hijo de un joint gira con él. Cinemática y no dinámica, igual que el
+    robot (ver el comentario de `build_scene`); sin ello `setJointPosition`
+    no sostiene los dedos.
+
+    Los `<mimic>` NO se traducen a nada en CoppeliaSim: con los joints en
+    cinemático, quien mueve la herramienta escribe todos (ver
+    `CoppeliaSimGripperAdapter`)."""
+    _, handles = simURDF.importFile(
+        mount.urdf_path, _IMPORT_OPTIONS, mount.urdf_package_prefix
+    )
+    root = handles[0]
+    sim.setModelProperty(
+        root, sim.getModelProperty(root) | sim.modelproperty_not_dynamic
+    )
+    for handle in sim.getObjectsInTree(root, sim.object_joint_type, 0):
+        sim.setJointMode(handle, sim.jointmode_kinematic)
+    parent = sim.getObject(f"/{mount.parent_joint}")
+    world_pose = sim.multiplyPoses(
+        sim.getObjectPose(parent, -1), list(mount.offset_pose)
+    )
+    sim.setObjectPose(root, -1, world_pose)
+    sim.setObjectParent(root, parent, True)
+
+
+def robotiq_2f_85_gripper(port: int) -> "CoppeliaSimGripperAdapter":
+    """`GripperPort` para la 2F-85 de una escena construida con
+    `mounts=[ROBOTIQ_2F_85_ON_CR5]`. Los joints y multiplicadores salen del
+    mismo URDF que se importó."""
+    from robot_node.adapters.coppeliasim_gripper_adapter import (
+        CoppeliaSimGripperAdapter,
+        gripper_joints_from_urdf,
+    )
+
+    sim = RemoteAPIClient(port=port).require("sim")
+    return CoppeliaSimGripperAdapter(
+        sim,
+        gripper_joints_from_urdf(ROBOTIQ_2F_85_URDF_PATH, ROBOTIQ_2F_85_DRIVEN_JOINT),
+    )
 
 
 def _clear_previous_build(sim, root_link_visual_alias: str) -> None:

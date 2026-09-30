@@ -388,6 +388,27 @@ tomes una decisión de este tipo — ver [[Cómo usar este vault (Obsidian)]].
 > Laet et al. y Kamarianakis et al. Plan en [[Ontología del Dominio
 > (lenguaje CGA)]].
 
+> [!tip] (30/09) Un URDF por pieza, montadas por código; no un URDF combinado robot+pinza+cámara
+> **Decisión.** Cada pieza física (el CR5, la Robotiq 2F-85 y, más adelante,
+> la cámara) conserva su propia descripción, y el montaje se declara en UN
+> solo sitio: `ToolMount` en `coppeliasim_scene_builder.py` (qué pieza, de
+> qué joint cuelga y con qué offset). Si alguna herramienta de ROS
+> (RViz, MoveIt, `robot_state_publisher`) exige un URDF combinado, se
+> generará a partir de esa descripción, no se mantendrá a mano.
+>
+> **Motivo.** (1) Cada pieza es un puerto distinto
+> ([[RobotConnectorPort]], [[GripperPort]], el de percepción) y puede no
+> estar; un URDF combinado por combinación volvería a juntar lo que los
+> puertos separan. (2) El URDF del CR5 es el que leen PoE/GA y el que la
+> escena reproduce al micrómetro; meter la pinza cambiaría la cadena y el
+> tip. La herramienta entra como offset (TCP), igual que en el controlador
+> real. (3) URDF no describe sensores: de una cámara solo daría un frame.
+>
+> **Hecho el 30/09** con la pinza: URDF oficial copiado a
+> `assets/robotiq_2f_85/` (BSD, PickNik) y [[CoppeliaSimGripperAdapter]].
+> **Pendiente:** el TCP de la pinza en la cinemática (hoy PoE/GA siguen
+> apuntando a la brida) y el offset del acoplador real, si lo hay.
+
 ## Ver también
 
 - [[Estado del Roadmap]]

@@ -377,6 +377,24 @@ Bloque 0 #20/#110/#111/#112/#113):**
       `robot_node/package.xml` declara `std_msgs`. Pendiente:
       `gripper_state`; el `RCLError` al parar con Ctrl+C es de
       `ros2_kit/runner.py` (doble `rclpy.shutdown()`), no de la pinza.
+      **Pinza en simulación verificada (30/09):** la 2F-85 montada en la
+      brida del CR5 en CoppeliaSim. No se usó el `ROBOTIQ 85.ttm` de
+      CoppeliaSim, que es un binario imposible de inspeccionar sin el
+      simulador. En su lugar, el URDF oficial (`robotiq_description`, PickNik,
+      BSD), expandido con xacro y copiado a `assets/robotiq_2f_85/`: un joint
+      que se manda (`robotiq_85_left_knuckle_joint`, 0-0,8 rad) y cinco
+      `<mimic>`. `CoppeliaSimGripperAdapter` (`GripperPort`, 7 tests) escribe
+      los seis joints en cinemático, con los multiplicadores leídos del
+      URDF. `coppeliasim_scene_builder` acepta `mounts=[ToolMount]` (la pinza
+      cuelga de `joint6`, montada con el brazo a cero). **Decisión:** un
+      URDF por pieza, montadas por código, no un URDF combinado
+      robot+pinza+cámara. Demo `cr5_gripper_sim_demo`, y
+      `lift_and_grip_demo --phase sim` ya mueve la pinza. Sin física:
+      `holding_object` siempre es False. Se descartó Isaac Sim por ahora:
+      trae la 2F-85, pero la RTX 3070 Ti (8 GB) está por debajo de su mínimo
+      (RTX 4080, 16 GB). Pendiente: `gripper_target` de simulación en
+      `robot_node`, el TCP de la pinza en PoE/GA y el offset del acoplador
+      real, si lo hay.
 
 - [ ] **`load` = 0 kg con una herramienta calibrada (17/09).** La trama
       real-time dice `toolCoordinate`=1 con un TCP de

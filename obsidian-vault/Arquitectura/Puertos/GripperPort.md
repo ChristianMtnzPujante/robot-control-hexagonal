@@ -36,13 +36,17 @@ algún día una pinza llega por un canal independiente, merecerá su propio
 
 - [[Robotiq2FGripperAdapter]]: Robotiq 2F a través del controlador del
   CR5. **Verificado contra la pinza real (29/09).**
-- Simulación: pendiente.
+- [[CoppeliaSimGripperAdapter]]: la misma 2F-85 importada desde su URDF
+  en CoppeliaSim, en modo cinemático. **Verificado en CoppeliaSim
+  (30/09).**
 
 ## Quién lo usa
 
 - [[RobotNode]], con `gripper_target: robotiq_2f`. Topics
   `gripper_activate` y `gripper_command`.
-- `commander/lift_and_grip_demo.py` ([[Scripts de Demostración]]).
+- `commander/lift_and_grip_demo.py` ([[Scripts de Demostración]]): fase
+  real con la Robotiq y, desde el 30/09, fase `sim` con la simulada.
+- `commander/cr5_gripper_sim_demo.py`: CR5 + 2F-85 solo en simulación.
 
 ## Ver también
 

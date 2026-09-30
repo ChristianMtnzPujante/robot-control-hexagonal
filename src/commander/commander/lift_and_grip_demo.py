@@ -16,8 +16,8 @@ empezaría a moverse con el brazo todavía subiendo.
 Fases:
     --phase plan   calcula la trayectoria e informa (solo LEE la postura
                    real por el 30004; no mueve nada)
-    --phase sim    reproduce la subida en CoppeliaSim (la pinza no está en
-                   la simulación: se omite)
+    --phase sim    reproduce la subida en CoppeliaSim con la 2F-85 montada
+                   en la brida, y abre/cierra la pinza simulada
     --phase real   brazo real + pinza real
 
 Uso:
@@ -44,14 +44,22 @@ import time
 
 from robot_node.adapters.cr5_real_adapter import Cr5RealRobotAdapter
 from robot_node.adapters.robotiq_2f_adapter import Robotiq2FGripperAdapter
+from shared_kernel import GripperPort, Scene
+
+from .coppeliasim_scene_builder import (
+    ROBOTIQ_2F_85_ON_CR5,
+    build_cr5_scene,
+    ensure_coppeliasim_running,
+    robotiq_2f_85_gripper,
+)
 
 from .poe_lift_and_wrist_demo import (
     _JOINT_NAMES,
     _build_combined_trajectory,
     _format_degrees,
     _print_summary,
+    _ZMQ_PORT,
     _read_real_current_configuration,
-    _run_sim_phase,
     _wait_until_robot_idle,
 )
 
@@ -72,7 +80,7 @@ def _parse_args() -> argparse.Namespace:
 
 
 def _move_gripper(
-    gripper: Robotiq2FGripperAdapter, name: str, opening: float, timeout_seconds: float
+    gripper: GripperPort, name: str, opening: float, timeout_seconds: float
 ) -> None:
     """set_opening() vuelve en cuanto la orden se acepta; aquí se espera a
     que la posición deje de cambiar (o a detectar objeto) para que la
@@ -101,6 +109,29 @@ def _move_gripper(
         f"  opening={state.opening:.2f}  objeto={'SÍ' if state.holding_object else 'no'}"
         f"  fallo=0x{state.fault_code:02X}"
     )
+
+
+def _run_sim_phase(args: argparse.Namespace, current, combined) -> None:
+    """Misma secuencia que la fase real, contra CoppeliaSim: el CR5 desde la
+    postura real actual con la 2F-85 en la brida (`ROBOTIQ_2F_85_ON_CR5`),
+    y la pinza por `GripperPort` igual que en la real."""
+    print("\n=== FASE SIMULACIÓN -- CR5 + Robotiq 2F-85 en CoppeliaSim ===")
+    ensure_coppeliasim_running(port=_ZMQ_PORT, settings_suffix="_lift_and_grip_demo")
+    robot = build_cr5_scene(
+        port=_ZMQ_PORT,
+        initial_configuration=current,
+        scene=Scene.empty(),
+        mounts=[ROBOTIQ_2F_85_ON_CR5],
+    )
+    gripper = robotiq_2f_85_gripper(_ZMQ_PORT)
+    print(f"\nBrazo: subiendo ({len(combined)} waypoints)...")
+    for waypoint in combined:
+        robot.set_joints(waypoint)
+        time.sleep(args.waypoint_pause_seconds)
+    gripper.activate()
+    _move_gripper(gripper, "ABRIR", 0.0, args.gripper_timeout_seconds)
+    _move_gripper(gripper, "CERRAR", 1.0, args.gripper_timeout_seconds)
+    print("\nSimulación terminada.")
 
 
 def _run_real_phase(args: argparse.Namespace, combined) -> None:
@@ -149,7 +180,6 @@ def main() -> None:
         print("\n(--phase plan: no se ha movido nada)")
     elif args.phase == "sim":
         _run_sim_phase(args, current, combined)
-        print("(La pinza no está en la simulación: se omite.)")
     else:
         _run_real_phase(args, combined)
 

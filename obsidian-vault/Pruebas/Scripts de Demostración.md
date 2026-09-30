@@ -95,7 +95,8 @@ cableado. Resultados numéricos y hallazgos ya analizados en
   actual), espera a `RobotMode()==5` y abre y cierra la pinza con
   `Robotiq2FGripperAdapter` sobre el socket del propio
   `Cr5RealRobotAdapter` (el 29999 admite un solo cliente). Fases `plan`
-  (solo calcula), `sim` (sin pinza) y `real`. Reutiliza las funciones de
+  (solo calcula), `sim` (desde el 30/09, con la 2F-85 simulada:
+  [[CoppeliaSimGripperAdapter]]) y `real`. Reutiliza las funciones de
   `poe_lift_and_wrist_demo.py`. Resultado real: +49,9 mm, 0,0 mm de
   desvío XY, pinza 0,01 → 0,90 sin fallo. Ver
   [[Pinza Robotiq 2F - Uso práctico]].
@@ -112,6 +113,12 @@ cableado. Resultados numéricos y hallazgos ya analizados en
 
 ## Verificar en CoppeliaSim antes de tocar hardware real
 
+- **`cr5_gripper_sim_demo.py`** (`commander`, 30/09) — el CR5 con la
+  Robotiq 2F-85 en la brida (`build_cr5_scene(..., mounts=[ROBOTIQ_2F_85_ON_CR5])`):
+  lleva el brazo a una postura con la pinza hacia abajo, abre y cierra
+  dos veces y gira `joint6` 90° para ver que la pinza va con la muñeca.
+  No necesita el robot real. **Verificado en CoppeliaSim el 30/09.** Ver
+  [[CoppeliaSimGripperAdapter]].
 - **`cr5_go_home_sim_demo.py`** (`commander`, 08/09) — contrapartida en
   simulación de `cr5_go_home_demo.py` (más abajo): construye una escena en
   blanco con `coppeliasim_scene_builder.build_cr5_scene` (mismo importador
