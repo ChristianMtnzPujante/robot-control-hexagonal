@@ -13,7 +13,8 @@ entrada nueva por cada día de trabajo real, no por cada mensaje.
 Más reciente primero:
 
 - [[2026-10-01]] — se reorganiza `commander`: células descritas en YAML
-  (`scenarios/`) y construidas sin scripts a medida, con dos modos de
+  (`descriptions/`: un fichero por robot, herramienta, escena y célula,
+  con guía generada) y construidas sin scripts a medida, con dos modos de
   ejecución. Fase 1 hecha y verificada en CoppeliaSim: coge el cubo y lo
   deja en el punto pedido ([[Células y Escenarios]]).
 - [[2026-09-30]] — la pinza Robotiq 2F-85 funciona también en CoppeliaSim:

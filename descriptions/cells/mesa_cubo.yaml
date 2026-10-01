@@ -1,0 +1,29 @@
+# CR5 + Robotiq 2F-85 sobre la escena mesa_cubo: la célula de la primera
+# prueba de agarre (verificada en CoppeliaSim el 01/10). Formato: «Célula».
+#
+# Solo simulación tal cual: para el real, una célula aparte con su escena
+# medida, robot.target: real, robot.host y tools[0].grasp_offset medido.
+
+name: mesa_cubo
+
+robot:
+  ref: cr5
+  target: sim
+  initial_posture: home
+
+tools:
+  - ref: robotiq_2f_85
+
+scene:
+  ref: mesa_cubo
+
+kinematics: poe
+
+simulator:
+  port: 23000
+  step_pause_seconds: 0.04
+
+postures:
+  # joint2 + joint3 + joint4 = 90°: la brida mira hacia abajo, en
+  # (-0.571, -0.141, 0.265) según PoE -- justo encima del cubo.
+  pre_agarre: [0, 20, 100, -30, -90, 0]

@@ -1,18 +1,18 @@
-"""Descripción declarativa de una célula de trabajo: qué robot, qué
-herramientas lleva montadas, con qué cinemática se calcula, qué posturas
-tienen nombre y qué hay en la escena. Es la fuente única de la que se
-construye la célula, en cualquiera de los dos modos de ejecución
-(directo, en este proceso; o por ROS, con sesiones -- fase 2) y contra
-cualquiera de los dos destinos (simulación o robot real).
+"""La célula COMPILADA: el robot, la herramienta y la escena ya resueltos
+(no nombres por buscar), más cómo se usan en esta célula (destino sim o
+real, cinemática, posturas de la tarea). Es lo que consumen los modos de
+ejecución -- el directo (`direct.py`) y, en la fase 2, el de ROS.
 
-Solo datos y validación: no sabe qué es CoppeliaSim ni el CR5. Los
-modelos (`robot.model`, `tools[].model`) son claves del catálogo
-(`catalog.py`), que es quien sabe cómo se construye cada uno. Se escribe a
-mano en YAML (`scenarios/*.yaml`, ver `loader.py`) o se construye en
-código.
+Se obtiene compilando un fichero de `descriptions/cells/` (`compile.py`),
+que referencia a un robot, una herramienta y una escena, cada uno en su
+propio formato. También se puede construir en código.
 
-Ver la decisión de diseño del 01/10 en el vault: "Decisiones de Diseño
-Clave" (descripción declarativa + dos modos de ejecución).
+`validate()` comprueba las reglas ENTRE piezas, que ningún formato puede
+comprobar solo: que la herramienta tenga montaje previsto en ese robot,
+que cada postura tenga un valor por joint, que el real tenga IP y una
+distancia de agarre medida...
+
+Ver las decisiones del 01/10 en el vault ("Decisiones de Diseño Clave").
 """
 
 from __future__ import annotations
@@ -22,22 +22,22 @@ from typing import Dict, Optional, Tuple
 
 from shared_kernel import Scene
 
+from .elements import RobotModel, ToolModel
+from .errors import InvalidCellError
+
 TARGETS = ("sim", "real")
 KINEMATICS = ("poe", "ga")
 
-
-class InvalidCellError(ValueError):
-    """La descripción de la célula está incompleta o es incoherente."""
+__all__ = ["CellDescription", "InvalidCellError", "RobotSpec", "SimulatorSpec", "ToolSpec"]
 
 
 @dataclass(frozen=True)
 class RobotSpec:
-    """`model` es una clave del catálogo (p. ej. "cr5"). `target` dice
-    dónde está el robot: "sim" (CoppeliaSim) o "real". `host` solo cuenta
-    en real. `initial_posture` es la postura (por nombre) en la que se crea
-    el robot en simulación; en real no se mueve nada al abrir la célula."""
+    """El robot `model` usado en esta célula. `target`: "sim" (CoppeliaSim)
+    o "real". `host` solo cuenta en real. `initial_posture` es la postura en
+    la que se crea en simulación; en real no se mueve nada al abrir."""
 
-    model: str
+    model: RobotModel
     target: str = "sim"
     host: Optional[str] = None
     initial_posture: Optional[str] = None
@@ -45,14 +45,16 @@ class RobotSpec:
 
 @dataclass(frozen=True)
 class ToolSpec:
-    """Una herramienta montada en el robot. `grasp_offset` es la distancia
-    de la brida al centro de lo que agarra (metros, a lo largo del eje de
-    la herramienta). En simulación es opcional: sale del modelo. En real
-    es OBLIGATORIO, porque depende del montaje (acoplador incluido) y hay
-    que medirlo."""
+    """La herramienta `model` montada en esta célula. `grasp_offset` es la
+    distancia de agarre MEDIDA en este montaje; sin ella se usa la del
+    modelo, que solo vale en simulación."""
 
-    model: str
+    model: ToolModel
     grasp_offset: Optional[float] = None
+
+    @property
+    def effective_grasp_offset(self) -> float:
+        return self.grasp_offset if self.grasp_offset is not None else self.model.grasp_offset
 
 
 @dataclass(frozen=True)
@@ -63,9 +65,8 @@ class SimulatorSpec:
 
 @dataclass(frozen=True)
 class CellDescription:
-    """`postures` son configuraciones articulares con nombre, en GRADOS y
-    en el orden de joints del modelo del robot. `scene` es el estado
-    inicial del mundo (cuerpos, puntos con nombre, obstáculos...)."""
+    """`postures` son TODAS las de la célula: las del modelo del robot más
+    las propias de la tarea (grados, en el orden de joints del robot)."""
 
     name: str
     robot: RobotSpec
@@ -79,33 +80,40 @@ class CellDescription:
         self.validate()
 
     def validate(self) -> None:
-        """Comprobaciones que no dependen del catálogo (eso lo hace
-        `catalog.py` al resolver los modelos)."""
+        robot = self.robot.model
         if not self.name:
             raise InvalidCellError("la célula necesita un nombre")
         if self.robot.target not in TARGETS:
-            raise InvalidCellError(
-                f'robot.target "{self.robot.target}" no es válido: {", ".join(TARGETS)}'
-            )
-        if self.robot.target == "real" and not self.robot.host:
-            raise InvalidCellError('robot.target "real" necesita robot.host (la IP del controlador)')
+            raise InvalidCellError(f'robot.target "{self.robot.target}" no es válido: {", ".join(TARGETS)}')
+        if self.robot.target == "real":
+            if not self.robot.host:
+                raise InvalidCellError('robot.target "real" necesita robot.host (la IP del controlador)')
+            if not robot.real_adapter:
+                raise InvalidCellError(f'el robot "{robot.name}" no tiene sección "real": solo simulación')
         if self.kinematics not in KINEMATICS:
-            raise InvalidCellError(
-                f'kinematics "{self.kinematics}" no es válida: {", ".join(KINEMATICS)}'
-            )
+            raise InvalidCellError(f'kinematics "{self.kinematics}" no es válida: {", ".join(KINEMATICS)}')
         if len(self.tools) > 1:
             raise InvalidCellError("de momento, una sola herramienta por célula")
-        if self.robot.target == "real":
-            for tool in self.tools:
+        for tool in self.tools:
+            if robot.name not in tool.model.mounts:
+                raise InvalidCellError(
+                    f'la herramienta "{tool.model.name}" no tiene montaje previsto en el robot "{robot.name}"'
+                )
+            if self.robot.target == "real":
                 if tool.grasp_offset is None:
                     raise InvalidCellError(
-                        f'la herramienta "{tool.model}" necesita grasp_offset MEDIDO para '
-                        "usarla en el robot real: depende del montaje, no del modelo"
+                        f'la herramienta "{tool.model.name}" necesita grasp_offset MEDIDO en la célula '
+                        "para usarla en el robot real: depende del montaje, no del modelo"
                     )
+                if not tool.model.real_adapter:
+                    raise InvalidCellError(f'la herramienta "{tool.model.name}" no tiene sección "real"')
+        for name, values in self.postures.items():
+            if len(values) != len(robot.joint_names):
+                raise InvalidCellError(
+                    f'la postura "{name}" tiene {len(values)} valores y el robot {len(robot.joint_names)} joints'
+                )
         if self.robot.initial_posture and self.robot.initial_posture not in self.postures:
-            raise InvalidCellError(
-                f'robot.initial_posture "{self.robot.initial_posture}" no está en postures'
-            )
+            raise InvalidCellError(f'robot.initial_posture "{self.robot.initial_posture}" no está en las posturas')
 
     @property
     def tool(self) -> Optional[ToolSpec]:
@@ -113,6 +121,5 @@ class CellDescription:
 
     def with_target(self, target: str, host: Optional[str] = None) -> "CellDescription":
         """La misma célula contra otro destino (p. ej. probar en sim lo que
-        el YAML describe para el real, o al revés). Vuelve a validar."""
-        robot = replace(self.robot, target=target, host=host or self.robot.host)
-        return replace(self, robot=robot)
+        se describió para el real). Vuelve a validar."""
+        return replace(self, robot=replace(self.robot, target=target, host=host or self.robot.host))

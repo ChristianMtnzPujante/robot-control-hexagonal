@@ -114,7 +114,8 @@ cableado. Resultados numéricos y hallazgos ya analizados en
 ## Escenarios en YAML (01/10, modo directo)
 
 Demos genéricas sobre [[Células y Escenarios]]: valen para cualquier
-`scenarios/*.yaml`, en sim o en real (`--target real --host ...`).
+célula de `descriptions/cells/` (`--cell`), en sim o en real
+(`--target real --host ...`).
 
 - **`cell_demo`** — abre la célula y, con `--posture`, la lleva a una
   postura con nombre. Para ver una escena nueva.
@@ -128,7 +129,8 @@ Demos genéricas sobre [[Células y Escenarios]]: valen para cualquier
 ## Verificar en CoppeliaSim antes de tocar hardware real
 
 - **`cr5_gripper_sim_demo.py`** (`commander`, 30/09) — el CR5 con la
-  Robotiq 2F-85 en la brida (`build_cr5_scene(..., mounts=[ROBOTIQ_2F_85_ON_CR5])`):
+  Robotiq 2F-85 en la brida (`build_cr5_scene` con el montaje de
+  `descriptions/tools/robotiq_2f_85.yaml`):
   lleva el brazo a una postura con la pinza hacia abajo, abre y cierra
   dos veces y gira `joint6` 90° para ver que la pinza va con la muñeca.
   No necesita el robot real. **Verificado en CoppeliaSim el 30/09.** Ver

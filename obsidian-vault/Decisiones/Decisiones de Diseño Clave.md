@@ -428,7 +428,8 @@ tomes una decisión de este tipo — ver [[Cómo usar este vault (Obsidian)]].
 > [!tip] (01/10) Descripción declarativa de la célula (YAML) y dos modos de ejecución desde ella
 > **Decisión.** Una `CellDescription` (robot, herramientas, cinemática,
 > posturas con nombre y `Scene` inicial), escrita en YAML
-> (`scenarios/*.yaml`) y con un catálogo de modelos, es la fuente única de
+> (al principio `scenarios/*.yaml`; el mismo día, un fichero por elemento
+> en `descriptions/`, ver la decisión siguiente) es la fuente única de
 > la que se construye una célula. Desde ella, dos modos: **directo**
 > (adaptadores en el mismo proceso, para probar rápido y para hardware
 > nuevo) y **ROS** (sesiones de `Commander`, procesos separados), contra

@@ -1,0 +1,21 @@
+# Dobot CR5. Formato: «Robot» en la guía (Arquitectura/Guía de formatos YAML).
+# El URDF es el del driver oficial de Dobot (TCP-IP-ROS-6AXis), fuera del repo.
+
+urdf: ~/ros2_ws/src/TCP-IP-ROS-6AXis/dobot_description/urdf/cr5_robot.urdf
+# Las mallas citan "package://dobot_description/meshes/...": el prefijo es el
+# directorio que CONTIENE a dobot_description/, no dobot_description/ en sí.
+package_prefix: ~/ros2_ws/src/TCP-IP-ROS-6AXis/
+base_link: base_link
+tip_link: Link6          # la brida: su z sale de ella
+# joint_names: se derivan del URDF (joint1..joint6)
+
+postures:
+  home: [0, 0, 0, 0, 0, 0]
+
+sim:
+  root_alias: dummy_link_visual   # raíz que crea simURDF al importar
+  tip_object: Link6_visual        # coincide con la FK de PoE al micrómetro
+
+real:
+  adapter: cr5_tcp                # Cr5RealRobotAdapter: puertos 29999 y 30004
+  # joint_limits_degrees: sin él, los de fábrica (±360°, J3 ±160°)

@@ -32,22 +32,12 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from pathlib import Path
-from typing import List, Optional, Sequence, Tuple
+from typing import List, Sequence, Tuple
 
 from coppeliasim_zmqremoteapi_client import RemoteAPIClient
 from shared_kernel import Body, Box, Cylinder, JointConfiguration, Scene, Sphere
 
 from .coppeliasim_launcher import CoppeliaSimLaunchError, _launch, _port_open, _wait_for_port
-
-CR5_URDF_PATH = "/home/chris/ros2_ws/src/TCP-IP-ROS-6AXis/dobot_description/urdf/cr5_robot.urdf"
-# simURDF.import sustituye el literal "package://" por este prefijo -- las
-# mallas del URDF referencian "package://dobot_description/meshes/...", así
-# que el prefijo debe ser el directorio que CONTIENE a dobot_description/
-# (no dobot_description/ en sí, o el path quedaría duplicado).
-CR5_URDF_PACKAGE_PREFIX = "/home/chris/ros2_ws/src/TCP-IP-ROS-6AXis/"
-CR5_JOINT_NAMES = ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6"]
-CR5_TIP_NAME = "Link6_visual"
 
 # Bit-flags de simURDF.import (ver addOns/URDF importer.lua, misma
 # combinación que trae por defecto el diálogo del importador salvo por el
@@ -57,11 +47,6 @@ CR5_TIP_NAME = "Link6_visual"
 #   32  = NO centrar el modelo sobre el suelo (mantener el origen del URDF)
 #   128 = alternateLocalRespondableMasks (default del importador)
 _IMPORT_OPTIONS = 8 + 32 + 128
-
-# assets/ vive en la raíz del repo (ver assets/robotiq_2f_85/README.md).
-# resolve() hace falta con `colcon build --symlink-install`: sin él,
-# __file__ apunta a build/ y parents[3] no sería la raíz.
-_ASSETS_DIR = Path(__file__).resolve().parents[3] / "assets"
 
 # Todos los cuerpos de `Scene.bodies` cuelgan de este dummy, para poder
 # borrarlos de una vez al reconstruir (ver `_clear_previous_build`).
@@ -82,27 +67,14 @@ class ToolMount:
     `parent_joint` es el joint del robot del que cuelga (joint6 = brida del
     CR5); `offset_pose` es la pose [x y z qx qy qz qw] de la base de la
     herramienta respecto al frame de ese joint con el robot a cero -- por
-    defecto, justo en la brida sin girar. `root_link_visual_alias` sirve
-    para localizarla, igual que el de `build_scene`."""
+    defecto, justo en la brida sin girar. Los datos concretos de cada
+    herramienta viven en `descriptions/tools/*.yaml` (ver
+    `cell/adapters.tool_mount`)."""
 
     urdf_path: str
     urdf_package_prefix: str
     parent_joint: str
-    root_link_visual_alias: str
     offset_pose: Tuple[float, ...] = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0)
-
-
-ROBOTIQ_2F_85_URDF_PATH = str(_ASSETS_DIR / "robotiq_2f_85/urdf/robotiq_2f_85.urdf")
-ROBOTIQ_2F_85_DRIVEN_JOINT = "robotiq_85_left_knuckle_joint"
-# Montaje directo en la brida del CR5, sin acoplador intermedio: el eje z de
-# Link6 sale de la brida y los dedos de la 2F-85 apuntan a +z desde su base.
-# Si el acoplador real añade altura, va en offset_pose.
-ROBOTIQ_2F_85_ON_CR5 = ToolMount(
-    urdf_path=ROBOTIQ_2F_85_URDF_PATH,
-    urdf_package_prefix=str(_ASSETS_DIR) + "/",
-    parent_joint="joint6",
-    root_link_visual_alias="robotiq_85_base_link_visual",
-)
 
 
 def ensure_coppeliasim_running(
@@ -129,19 +101,23 @@ def build_cr5_scene(
     scene: Scene,
     mounts: Sequence[ToolMount] = (),
 ) -> "CoppeliaSimRobotAdapter":
-    """Envoltorio de `build_scene` con los datos concretos del CR5 --
-    conservado por compatibilidad con los demos que ya lo llaman así
+    """Envoltorio de `build_scene` con el CR5 de `descriptions/robots/cr5.yaml`
+    -- conservado por compatibilidad con los demos que ya lo llaman así
     (`avoid_obstacle_demo.py`, etc.). Ver `build_scene` para el mecanismo
     real, ya generalizado a cualquier URDF (ver ROADMAP.md, Bloque 9,
     verificado en vivo importando también un Franka Panda de 7 GDL junto
     al CR5)."""
+    # Import perezoso: cell/ importa este módulo.
+    from .cell.elements import load_robot
+
+    cr5 = load_robot("cr5")
     return build_scene(
         port=port,
-        urdf_path=CR5_URDF_PATH,
-        urdf_package_prefix=CR5_URDF_PACKAGE_PREFIX,
-        joint_names=CR5_JOINT_NAMES,
-        tip_name=CR5_TIP_NAME,
-        root_link_visual_alias="dummy_link_visual",
+        urdf_path=cr5.urdf_path,
+        urdf_package_prefix=cr5.package_prefix,
+        joint_names=list(cr5.joint_names),
+        tip_name=cr5.sim_tip_object,
+        root_link_visual_alias=cr5.sim_root_alias,
         initial_configuration=initial_configuration,
         scene=scene,
         mounts=mounts,
@@ -312,58 +288,6 @@ def _create_body_shape(sim, body: Body) -> int:
             sim.primitiveshape_spheroid, [2 * shape.radius] * 3
         )
     raise TypeError(f"forma no soportada: {type(shape).__name__}")
-
-
-def _robotiq_2f_85_grasp():
-    """Geometría de agarre de la 2F-85, calculada el 30/09 de sus mallas de
-    colisión (`meshes/collision/*_finger_tip.stl`) y de la cadena del URDF,
-    en el marco de `GraspGeometry` (origen entre los nudillos, que están a
-    0.0549 m de la base): las yemas van de z = 0.0923 a 0.1631 m de la base,
-    miden 2.7 cm en y, y su cara interior está a 42.5 mm del plano medio
-    abierta (85 mm de carrera, como la ficha de Robotiq) y a 0 cerrada. La
-    tabla es la semiapertura cada 0.1 rad del nudillo (0..0.8)."""
-    from robot_node.adapters.coppeliasim_gripper_adapter import GraspGeometry
-
-    knuckle_z = 0.0549
-    return GraspGeometry(
-        left_knuckle_joint="robotiq_85_left_knuckle_joint",
-        right_knuckle_joint="robotiq_85_right_knuckle_joint",
-        left_tip_joint="robotiq_85_left_finger_tip_joint",
-        right_tip_joint="robotiq_85_right_finger_tip_joint",
-        pad_z_range=(0.0923 - knuckle_z, 0.1631 - knuckle_z),
-        pad_half_width=0.0135,
-        half_gap_by_fraction=(
-            0.0425, 0.0380, 0.0331, 0.0280, 0.0227, 0.0171, 0.0115, 0.0058, 0.0001,
-        ),
-    )
-
-
-# Dónde queda, en el marco de la brida (joint6), el centro de lo que la
-# 2F-85 agarra para que las yemas lo cubran sin tocar lo que tenga debajo:
-# a 5 cm de ancho, la punta de las yemas llega a 0.159 m de la base, así
-# que con el centro a 0.14 m sobra ~0.5 cm hasta la mesa bajo un cubo de 5 cm.
-ROBOTIQ_2F_85_GRASP_DEPTH = 0.14
-
-
-def robotiq_2f_85_gripper(
-    port: int, scene: Optional[Scene] = None
-) -> "CoppeliaSimGripperAdapter":
-    """`GripperPort` para la 2F-85 de una escena construida con
-    `mounts=[ROBOTIQ_2F_85_ON_CR5]`. Los joints y multiplicadores salen del
-    mismo URDF que se importó. Con `scene`, además agarra (cinemático) los
-    cuerpos `graspable` de esa escena."""
-    from robot_node.adapters.coppeliasim_gripper_adapter import (
-        CoppeliaSimGripperAdapter,
-        gripper_joints_from_urdf,
-    )
-
-    sim = RemoteAPIClient(port=port).require("sim")
-    return CoppeliaSimGripperAdapter(
-        sim,
-        gripper_joints_from_urdf(ROBOTIQ_2F_85_URDF_PATH, ROBOTIQ_2F_85_DRIVEN_JOINT),
-        grasp=_robotiq_2f_85_grasp() if scene is not None else None,
-        graspable_bodies=scene.graspable_bodies() if scene is not None else None,
-    )
 
 
 def _clear_previous_build(sim, root_link_visual_alias: str) -> None:

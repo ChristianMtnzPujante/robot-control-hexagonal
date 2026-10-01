@@ -46,12 +46,9 @@ from robot_node.adapters.cr5_real_adapter import Cr5RealRobotAdapter
 from robot_node.adapters.robotiq_2f_adapter import Robotiq2FGripperAdapter
 from shared_kernel import GripperPort, Scene
 
-from .coppeliasim_scene_builder import (
-    ROBOTIQ_2F_85_ON_CR5,
-    build_cr5_scene,
-    ensure_coppeliasim_running,
-    robotiq_2f_85_gripper,
-)
+from .cell import load_robot, load_tool
+from .cell.adapters import SIM_GRIPPERS, tool_mount
+from .coppeliasim_scene_builder import build_cr5_scene, ensure_coppeliasim_running
 
 from .poe_lift_and_wrist_demo import (
     _JOINT_NAMES,
@@ -113,17 +110,18 @@ def _move_gripper(
 
 def _run_sim_phase(args: argparse.Namespace, current, combined) -> None:
     """Misma secuencia que la fase real, contra CoppeliaSim: el CR5 desde la
-    postura real actual con la 2F-85 en la brida (`ROBOTIQ_2F_85_ON_CR5`),
+    postura real actual con la 2F-85 en la brida (`descriptions/tools/`),
     y la pinza por `GripperPort` igual que en la real."""
     print("\n=== FASE SIMULACIÓN -- CR5 + Robotiq 2F-85 en CoppeliaSim ===")
     ensure_coppeliasim_running(port=_ZMQ_PORT, settings_suffix="_lift_and_grip_demo")
+    tool = load_tool("robotiq_2f_85")
     robot = build_cr5_scene(
         port=_ZMQ_PORT,
         initial_configuration=current,
         scene=Scene.empty(),
-        mounts=[ROBOTIQ_2F_85_ON_CR5],
+        mounts=[tool_mount(tool, load_robot("cr5"))],
     )
-    gripper = robotiq_2f_85_gripper(_ZMQ_PORT)
+    gripper = SIM_GRIPPERS[tool.sim_adapter](tool, _ZMQ_PORT, Scene.empty())
     print(f"\nBrazo: subiendo ({len(combined)} waypoints)...")
     for waypoint in combined:
         robot.set_joints(waypoint)

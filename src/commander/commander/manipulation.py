@@ -3,7 +3,7 @@ brazo y una pinza, escritas SOLO contra los puertos del dominio
 (`RobotConnectorPort`, `GripperPort`, `KinematicsPort`). No saben si debajo
 hay CoppeliaSim o el CR5 real: eso lo decide quien las monta (ver
 `cell/direct.py`). Un script de prueba se reduce a describir la célula
-(`scenarios/*.yaml`) y pedir `pick(...)`/`place(...)`.
+(`descriptions/cells/*.yaml`) y pedir `pick(...)`/`place(...)`.
 
 Lo que cambia entre simulación y robot real no está aquí, se inyecta:
 - `wait_until_idle`: el CR5 real ENCOLA los MovJ; hay que esperar a que
@@ -68,7 +68,8 @@ class NoGripperError(Exception):
 class GraspSettings:
     """Parámetros de un agarre. `grasp_offset` depende de CÓMO está montada
     la pinza (acoplador incluido): en simulación sale del modelo
-    (`ROBOTIQ_2F_85_GRASP_DEPTH`); en el robot real hay que MEDIRLO.
+    (`grasp.offset` en `descriptions/tools/`); en el robot real hay que
+    MEDIRLO.
 
     - `approach_distance`: a cuánto se para antes de bajar a coger o a
       dejar, medido a lo largo del eje de la herramienta.

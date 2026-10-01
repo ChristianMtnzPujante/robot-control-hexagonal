@@ -60,20 +60,24 @@ es dominio puro y no debe saber qué es CoppeliaSim.
   `offset_pose`). Se montan con el robot aún a cero, antes de la postura
   inicial, y quedan hijas del joint (así cuelga simURDF los links),
   cinemáticas y no dinámicas como el robot. Constante
-  `ROBOTIQ_2F_85_ON_CR5` (2F-85 en `joint6`, sin acoplador) y
+  (2F-85 en `joint6`, sin acoplador) y
   `robotiq_2f_85_gripper(port)`, que devuelve su
   [[CoppeliaSimGripperAdapter]]. Por qué un URDF por pieza: [[Decisiones
   de Diseño Clave]] (30/09).
 - **`Scene.bodies` (30/09)** — `build_scene` dibuja cada `Body` como un
   shape primitivo con su nombre de alias (`_render_bodies`), estático y
   sin colisión física, colgado de un dummy `cuerpos_escena` que
-  `_clear_previous_build` borra al reconstruir. Aquí vive también la
-  geometría de agarre de la 2F-85 (`_robotiq_2f_85_grasp`,
-  `ROBOTIQ_2F_85_GRASP_DEPTH`) y `robotiq_2f_85_gripper(port, scene)`.
-  Las constantes del CR5 (`CR5_URDF_PATH`...) son públicas desde el 01/10:
-  las usa el catálogo de [[Células y Escenarios]].
+  `_clear_previous_build` borra al reconstruir.
+- **Datos fuera del código (01/10)** — este módulo ya solo tiene el
+  mecanismo genérico (importar, montar, dibujar). Los datos del CR5 y de la
+  2F-85 (URDF, montaje, geometría de agarre) viven en
+  `descriptions/robots/cr5.yaml` y `descriptions/tools/robotiq_2f_85.yaml`;
+  ver [[Células y Escenarios]]. `ToolMount` lo construye
+  `cell/adapters.tool_mount` y la pinza simulada el adaptador
+  `coppeliasim_urdf_gripper`.
 - **`build_cr5_scene(port, initial_configuration, scene)`** — envoltorio
-  de `build_scene` con las constantes del CR5 (`_CR5_URDF_PATH`,
+  de `build_scene` con el CR5 de `descriptions/robots/cr5.yaml` (antes,
+  constantes en código: `_CR5_URDF_PATH`,
   `_CR5_JOINT_NAMES`, `_CR5_TIP_NAME`...), conservado por compatibilidad
   con los demos que ya lo llaman así.
 - **`build_scene(port, urdf_path, urdf_package_prefix, joint_names, tip_name, root_link_visual_alias, initial_configuration, scene)`**

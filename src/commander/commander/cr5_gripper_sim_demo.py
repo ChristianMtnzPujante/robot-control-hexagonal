@@ -4,7 +4,7 @@ cierra la pinza, y gira la muñeca para ver que la pinza va solidaria con
 Link6.
 
 Escena construida por código (`build_cr5_scene` con
-`mounts=[ROBOTIQ_2F_85_ON_CR5]`): el CR5 desde su URDF y la pinza desde el
+la 2F-85 de `descriptions/tools/robotiq_2f_85.yaml`): el CR5 desde su URDF y la pinza desde el
 suyo (assets/robotiq_2f_85/), colgada de joint6. La pinza se mueve con
 `CoppeliaSimGripperAdapter`, el `GripperPort` de simulación -- el mismo
 contrato que `Robotiq2FGripperAdapter` usa con la pinza real.
@@ -25,11 +25,11 @@ from typing import List
 
 from shared_kernel import JointConfiguration, JointPosition, Scene, Trajectory
 
+from .cell import load_robot, load_tool
+from .cell.adapters import SIM_GRIPPERS, tool_mount
 from .coppeliasim_scene_builder import (
-    ROBOTIQ_2F_85_ON_CR5,
     build_cr5_scene,
     ensure_coppeliasim_running,
-    robotiq_2f_85_gripper,
 )
 
 _JOINT_NAMES = ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6"]
@@ -57,13 +57,14 @@ def run(work_degrees: List[float], cycles: int = 2, port: int = _ZMQ_PORT) -> No
     ensure_coppeliasim_running(port=port, settings_suffix=f"_cr5_gripper_sim_demo_{port}")
 
     home = _configuration([0.0] * 6)
+    tool = load_tool("robotiq_2f_85")
     robot = build_cr5_scene(
         port=port,
         initial_configuration=home,
         scene=Scene.empty(),
-        mounts=[ROBOTIQ_2F_85_ON_CR5],
+        mounts=[tool_mount(tool, load_robot("cr5"))],
     )
-    gripper = robotiq_2f_85_gripper(port)
+    gripper = SIM_GRIPPERS[tool.sim_adapter](tool, port, Scene.empty())
 
     work = _configuration(work_degrees)
     print("Brazo: de home a la postura de trabajo...")

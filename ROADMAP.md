@@ -424,8 +424,21 @@ Bloque 0 #20/#110/#111/#112/#113):**
       `Cr5RealRobotAdapter.wait_until_idle` (la espera estaba copiada en
       cinco demos; quedan cuatro por migrar). Cinemática construida del
       URDF: en seco, mismos resultados que el CR5 fijo. 213 tests.
+      **Formatos por elemento (01/10, verificado en CoppeliaSim):** la
+      descripción se separa en un YAML por pieza --
+      `descriptions/robots/`, `tools/`, `scenes/` y `cells/` (que solo
+      referencia a los demás); `scenarios/` desaparece. El catálogo en
+      Python pasa a YAML: en código solo quedan los adaptadores por nombre
+      (`cell/adapters.py`), y `coppeliasim_scene_builder` pierde los datos
+      del CR5 y la 2F-85. Cada sección declara sus campos una vez: de ahí
+      salen la validación estricta y la guía del vault ("Guía de formatos
+      YAML", generada con `cell_guide`; un test comprueba que está al
+      día). Demos con `--cell`. Repetida la prueba en CoppeliaSim con la
+      célula compilada: mismo resultado. 222 tests.
       Pendiente: fase 2 (`Commander`/`ControlSession` desde la
-      descripción, pinza de simulación en `robot_node`, `gripper_state`),
+      descripción, con el grafo de nodos que compruebe suscripciones sin
+      publicador, tipos y QoS; pinza de simulación en `robot_node`,
+      `gripper_state`),
       fase 3 (adaptadores de puertos por ROS y acciones con resultado:
       las tools del Bloque 6), fase 4 (migrar demos). Detalle y deuda en
       el vault, "Células y Escenarios".

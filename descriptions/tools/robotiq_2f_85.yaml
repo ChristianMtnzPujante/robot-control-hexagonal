@@ -1,0 +1,39 @@
+# Robotiq 2F-85. Formato: «Herramienta» en la guía.
+# URDF y mallas: assets/robotiq_2f_85/ (robotiq_description de PickNik, BSD).
+
+urdf: ../../assets/robotiq_2f_85/urdf/robotiq_2f_85.urdf
+package_prefix: ../../assets/
+driven_joint: robotiq_85_left_knuckle_joint   # 0 abierta .. 0.8 rad cerrada
+
+mounts:
+  cr5:
+    parent_joint: joint6
+    # Directa en la brida, sin acoplador: el z de Link6 sale de la brida y
+    # los dedos apuntan a +z desde la base de la pinza. Si el acoplador real
+    # añade altura, va aquí (position).
+
+grasp:
+  # Del MODELO (30/09): con un cubo de 5 cm, las puntas quedan ~0.5 cm sobre
+  # la mesa. Verificado en CoppeliaSim el 01/10. En el robot real, la célula
+  # tiene que dar la distancia MEDIDA (tools[].grasp_offset).
+  offset: 0.14
+  pads:
+    # Sacado de las mallas de colisión (meshes/collision/*_finger_tip.stl) y
+    # la cadena del URDF. Marco de agarre: origen entre los nudillos (a
+    # 0.0549 m de la base), x de nudillo derecho a izquierdo, z hacia las
+    # puntas.
+    frame_joints:
+      left_knuckle: robotiq_85_left_knuckle_joint
+      right_knuckle: robotiq_85_right_knuckle_joint
+      left_tip: robotiq_85_left_finger_tip_joint
+      right_tip: robotiq_85_right_finger_tip_joint
+    z_range: [0.0374, 0.1082]   # yemas de 0.0923 a 0.1631 m de la base
+    half_width: 0.0135          # 2.7 cm de ancho
+    # Semiapertura cada 0.1 rad del nudillo (0..0.8): 42.5 mm abierta
+    # (85 mm de carrera, como la ficha de Robotiq) .. 0 cerrada.
+    half_gap_by_fraction: [0.0425, 0.0380, 0.0331, 0.0280, 0.0227, 0.0171, 0.0115, 0.0058, 0.0001]
+
+sim:
+  adapter: coppeliasim_urdf_gripper   # cinemática, con agarre cinemático
+real:
+  adapter: robotiq_modbus_flange      # Modbus por el 485 de la brida del CR5

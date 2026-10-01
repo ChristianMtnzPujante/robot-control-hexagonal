@@ -81,8 +81,8 @@ def gripper_joints_from_urdf(urdf_path: str, driven_joint: str) -> GripperJoints
 class GraspGeometry:
     """Dónde están las yemas de una pinza paralela, para el agarre
     cinemático. Es de la PINZA, no de la escena: para la 2F-85 se calculó
-    de sus mallas de colisión (ver ROBOTIQ_2F_85_GRASP en
-    `commander/coppeliasim_scene_builder.py`).
+    de sus mallas de colisión (ver `grasp.pads` en
+    `descriptions/tools/robotiq_2f_85.yaml`).
 
     El marco de agarre se construye con las posiciones de cuatro joints,
     que simURDF deja donde dice el URDF (el frame del shape raíz, en

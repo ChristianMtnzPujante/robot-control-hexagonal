@@ -20,7 +20,8 @@ de ellos del agarre cinemático).
   inspeccionar sin tener el simulador en marcha. La procedencia está en su
   README.
 - **Montaje:** lo hace `coppeliasim_scene_builder` con
-  `mounts=[ROBOTIQ_2F_85_ON_CR5]`. La pinza cuelga de `joint6` (brida) sin
+  el montaje de `descriptions/tools/robotiq_2f_85.yaml`, donde también vive
+  la geometría de las yemas (`grasp.pads`). La pinza cuelga de `joint6` (brida) sin
   acoplador; ver [[Herramientas de CoppeliaSim]].
 
 ## Cómo mueve los dedos
