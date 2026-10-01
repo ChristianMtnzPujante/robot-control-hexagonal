@@ -948,6 +948,14 @@ Bloque 0 #20/#110/#111/#112/#113):**
       (postura, encima de un punto, abrir/cerrar, pick, place, refrescar,
       reconstruir). `ros2 run commander cell_console` enseña las tools,
       pide opciones y avisa de qué tools cambian (`tools/list_changed`).
+      **Posiciones concretas (01/10, verificado en CoppeliaSim):**
+      `move_to_position(x, y, z)` y `define_point(name, x, y, z)`; las
+      operaciones pasan a un esquema JSON por parámetro. Fallo encontrado
+      con la consola: `move_above_point` desde home salía de lado (el eje
+      de la herramienta en home es horizontal). Corregido: manipulación
+      siempre desde arriba (herramienta hacia abajo) e IK reintentada
+      desde las posturas con nombre; sin solución, error "fuera de
+      alcance".
       Pendiente: percepción conectada al mundo, modo ROS, servidor MCP
       (capa fina sobre `ToolBox`), tools largas cancelables.
 - [ ] Diseñar la superficie de la API: qué operaciones expone el backend

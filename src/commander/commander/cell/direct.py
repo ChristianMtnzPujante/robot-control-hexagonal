@@ -85,6 +85,13 @@ def configuration_from_degrees(joint_names: Sequence[str], degrees: Sequence[flo
     ).value
 
 
+def _posture_seeds(cell: CellDescription) -> Tuple[JointConfiguration, ...]:
+    """Las posturas con nombre de la célula, como semillas de IK para
+    `Manipulator.move_to_pose`."""
+    joints = cell.robot.model.joint_names
+    return tuple(configuration_from_degrees(joints, degrees) for degrees in cell.postures.values())
+
+
 def build_kinematics(kinematics: str, model: RobotModel) -> KinematicsPort:
     """La cinemática pedida, construida del URDF del modelo (no del CR5
     fijo que traen los adaptadores por defecto)."""
@@ -151,6 +158,7 @@ def _open_sim(cell: CellDescription, confirm, log) -> Iterator[CellHandle]:
         confirm=confirm or (lambda message: True),
         step_pause_seconds=cell.simulator.step_pause_seconds,
         log=log,
+        ik_seeds=_posture_seeds(cell),
     )
     sim = RemoteAPIClient(port=port).require("sim")
     try:
@@ -187,6 +195,7 @@ def _open_real(cell: CellDescription, confirm, log) -> Iterator[CellHandle]:
                 confirm=confirm or ask_on_keyboard,
                 step_pause_seconds=_REAL_STEP_PAUSE_SECONDS,
                 log=log,
+                ik_seeds=_posture_seeds(cell),
             ),
         )
     finally:

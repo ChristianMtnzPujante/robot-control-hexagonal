@@ -16,11 +16,16 @@ Lo que cambia entre simulación y robot real no está aquí, se inyecta:
 
 Convención de herramienta: el eje de la herramienta es el z de la brida
 (`forward_kinematics`), y lo que la pinza agarra queda centrado en ese
-eje, a `GraspSettings.grasp_offset` de la brida. Coger un cuerpo es llevar
-la brida a `centro - grasp_offset·eje`, sin cambiar la orientación actual.
-Por eso, antes de `pick`, el brazo tiene que estar ya en una postura con
-la herramienta en la orientación en que se quiere coger (p. ej. mirando
-hacia abajo): no hay todavía planificador de agarres que la elija.
+eje, a `GraspSettings.grasp_offset` de la brida. Coger, dejar, ponerse
+encima o ir a una posición es siempre DESDE ARRIBA, con la herramienta
+mirando hacia abajo (`top_down_quaternion`: si ya mira hacia abajo,
+conserva su giro). Hasta el 01/10 se conservaba la orientación actual, y
+desde la home del CR5 (herramienta horizontal) "encima" salía de lado.
+Otras direcciones de agarre necesitan un planificador de agarres.
+
+Si la IK no converge desde la postura actual, `move_to_pose` reintenta
+desde las posturas conocidas (`ik_seeds`): PoE resuelve por iteración
+local, y desde el borde del alcance puede no llegar.
 
 Los tramos cerca de la mesa (aproximación, bajada, subida) son rectas
 CARTESIANAS de verdad (`move_linear`): `KinematicsPort.compute_trajectory`
@@ -94,6 +99,57 @@ def tool_axis(pose: Pose) -> Vector:
     return (2 * (x * z + y * w), 2 * (y * z - x * w), 1 - 2 * (x * x + y * y))
 
 
+def _rotation_columns(pose: Pose) -> Tuple[Vector, Vector, Vector]:
+    """Ejes x, y, z de la orientación de `pose`, en el marco base."""
+    x, y, z, w = pose.qx, pose.qy, pose.qz, pose.qw
+    return (
+        (1 - 2 * (y * y + z * z), 2 * (x * y + z * w), 2 * (x * z - y * w)),
+        (2 * (x * y - z * w), 1 - 2 * (x * x + z * z), 2 * (y * z + x * w)),
+        tool_axis(pose),
+    )
+
+
+def _quaternion_from_axes(x_axis: Vector, y_axis: Vector, z_axis: Vector) -> Tuple[float, float, float, float]:
+    """Cuaternión (qx, qy, qz, qw) de la rotación cuyas columnas son esos
+    ejes (método de Shepperd, estable en todos los casos)."""
+    m = ((x_axis[0], y_axis[0], z_axis[0]), (x_axis[1], y_axis[1], z_axis[1]), (x_axis[2], y_axis[2], z_axis[2]))
+    trace = m[0][0] + m[1][1] + m[2][2]
+    if trace > 0:
+        s = 2 * math.sqrt(trace + 1)
+        return ((m[2][1] - m[1][2]) / s, (m[0][2] - m[2][0]) / s, (m[1][0] - m[0][1]) / s, s / 4)
+    i = max(range(3), key=lambda k: m[k][k])
+    j, k = (i + 1) % 3, (i + 2) % 3
+    s = 2 * math.sqrt(1 + m[i][i] - m[j][j] - m[k][k])
+    q = [0.0, 0.0, 0.0]
+    q[i] = s / 4
+    q[j] = (m[j][i] + m[i][j]) / s
+    q[k] = (m[k][i] + m[i][k]) / s
+    return (q[0], q[1], q[2], (m[k][j] - m[j][k]) / s)
+
+
+_DOWN: Vector = (0.0, 0.0, -1.0)
+_ALREADY_DOWN_COS = math.cos(math.radians(10))
+
+
+def top_down_quaternion(current: Pose) -> Tuple[float, float, float, float]:
+    """Orientación con la herramienta mirando hacia ABAJO (z de la brida =
+    -z del mundo). Si `current` ya mira hacia abajo (menos de 10°), se
+    conserva tal cual, giro incluido. Si no, el giro alrededor de la
+    vertical sale de proyectar el x actual de la brida en el plano
+    horizontal (o el y del mundo si es casi vertical)."""
+    x_axis, _, z_axis = _rotation_columns(current)
+    if sum(a * b for a, b in zip(z_axis, _DOWN)) >= _ALREADY_DOWN_COS:
+        return (current.qx, current.qy, current.qz, current.qw)
+    horizontal = (x_axis[0], x_axis[1], 0.0)
+    norm = math.hypot(horizontal[0], horizontal[1])
+    x_new = (horizontal[0] / norm, horizontal[1] / norm, 0.0) if norm > 0.1 else (0.0, 1.0, 0.0)
+    # y = z × x, con z = abajo
+    y_new = (_DOWN[1] * x_new[2] - _DOWN[2] * x_new[1],
+             _DOWN[2] * x_new[0] - _DOWN[0] * x_new[2],
+             _DOWN[0] * x_new[1] - _DOWN[1] * x_new[0])
+    return _quaternion_from_axes(x_new, y_new, _DOWN)
+
+
 def _offset(pose: Pose, axis: Vector, distance: float) -> Pose:
     """`pose` desplazada `distance` a lo largo de `axis`, misma orientación."""
     return Pose(
@@ -118,8 +174,14 @@ class Manipulator:
         confirm: Callable[[str], bool] = lambda message: True,
         step_pause_seconds: float = 0.0,
         log: Callable[[str], None] = print,
+        ik_seeds: Sequence[JointConfiguration] = (),
     ):
+        """`ik_seeds`: configuraciones desde las que reintentar la IK si no
+        converge desde la actual (p. ej. las posturas con nombre de la
+        célula): PoE resuelve por iteración local y, desde el borde del
+        alcance (la home del CR5), puede no llegar a objetivos lejanos."""
         self.robot = robot
+        self._ik_seeds = tuple(ik_seeds)
         self.gripper = gripper
         self.kinematics = kinematics
         self.settings = settings
@@ -141,11 +203,29 @@ class Manipulator:
         trabajo)."""
         self._play(Trajectory.straight_line(self.current_configuration(), target, steps).waypoints)
 
-    def move_to_pose(self, goal: Pose) -> None:
+    def move_to_pose(self, goal: Pose, steps: int = 50) -> None:
         """Movimiento libre a una pose de la brida: IK + interpolación
-        articular. El camino NO es recto; úsalo lejos de la mesa."""
-        trajectory = self.kinematics.compute_trajectory(goal, self.current_configuration())
-        self._play(trajectory.waypoints)
+        articular. El camino NO es recto; úsalo lejos de la mesa. Si la IK
+        no converge desde la configuración actual, se reintenta desde cada
+        semilla (`ik_seeds`) y se va a la solución en espacio articular."""
+        current = self.current_configuration()
+        try:
+            self._play(self.kinematics.compute_trajectory(goal, current).waypoints)
+            return
+        except RuntimeError as first_error:
+            failure = first_error
+        for seed in self._ik_seeds:
+            try:
+                target = self.kinematics.compute_trajectory(goal, seed).waypoints[-1]
+            except RuntimeError:
+                continue
+            self._play(Trajectory.straight_line(current, target, steps).waypoints)
+            return
+        raise RuntimeError(
+            f"no hay solución de IK para ({goal.x:+.3f}, {goal.y:+.3f}, {goal.z:+.3f}) ni desde la postura "
+            f"actual ni desde {len(self._ik_seeds)} postura(s) conocida(s): probablemente fuera de alcance. "
+            f"({failure})"
+        )
 
     def move_linear(self, goal: Pose) -> None:
         """Recta cartesiana de la brida hasta la POSICIÓN de `goal`, con la
@@ -216,17 +296,25 @@ class Manipulator:
 
     def grasp_pose_for(self, center: Point) -> Pose:
         """Pose de la brida para que `center` quede entre las yemas, con la
-        orientación actual de la herramienta."""
-        current = self.flange_pose()
-        at_center = Pose(center.x, center.y, center.z, current.qx, current.qy, current.qz, current.qw)
-        return _offset(at_center, tool_axis(current), -self.settings.grasp_offset)
+        herramienta mirando hacia ABAJO (ver `top_down_quaternion`): coger y
+        dejar son siempre desde arriba, hasta que haya un planificador de
+        agarres. Sin herramienta (`grasp_offset` 0), es la brida en `center`."""
+        qx, qy, qz, qw = top_down_quaternion(self.flange_pose())
+        at_center = Pose(center.x, center.y, center.z, qx, qy, qz, qw)
+        return _offset(at_center, _DOWN, -self.settings.grasp_offset)
+
+    def move_to_position(self, center: Point) -> None:
+        """Lleva el punto de agarre (entre las yemas; sin herramienta, la
+        brida) a `center`, con la herramienta hacia abajo. Movimiento libre:
+        el camino no es recto."""
+        self.move_to_pose(self.grasp_pose_for(center))
 
     def move_above(self, center: Point) -> None:
         """Se coloca encima de `center`, a `approach_distance` del punto de
-        agarre a lo largo del eje de la herramienta, sin cambiar su
-        orientación: el mismo sitio desde el que `pick`/`place` bajan."""
+        agarre en vertical, con la herramienta hacia abajo: el mismo sitio
+        desde el que `pick`/`place` bajan."""
         grasp = self.grasp_pose_for(center)
-        self.move_to_pose(_offset(grasp, tool_axis(grasp), -self.settings.approach_distance))
+        self.move_to_pose(_offset(grasp, _DOWN, -self.settings.approach_distance))
 
     def pick(self, name: str, body: Body) -> GripperState:
         """Coge `body`: se coloca sobre él (a `approach_distance`), baja en

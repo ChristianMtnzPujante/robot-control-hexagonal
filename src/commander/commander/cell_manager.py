@@ -27,7 +27,21 @@ from shared_kernel import Point, Pose
 from .cell import CellDescription, InvalidCellError, compile_cell, open_direct, parse_cell
 from .cell import capabilities as caps
 from .cell.adapters import cell_capabilities
-from .world import ACTION, HARDWARE, SIMULATOR, World
+from .world import ACTION, HARDWARE, SIMULATOR, USER, World
+
+
+def check_value(schema: Dict[str, Any], value: Any) -> Optional[str]:
+    """Que `value` cumpla el esquema de su parámetro (opciones, número o
+    texto). Devuelve el problema, o None."""
+    if "enum" in schema:
+        return None if value in schema["enum"] else f'"{value}" no es una opción: {schema["enum"]}'
+    if schema["type"] == "number":
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+            return f"{value!r} no es un número"
+        return None
+    if not isinstance(value, str) or not value.strip():
+        return f"{value!r} no es un texto no vacío"
+    return None
 
 
 @dataclass(frozen=True)
@@ -193,16 +207,18 @@ class CellManager:
         if operation not in available:
             return {"ok": False, "error": f'"{operation}" no está disponible ahora',
                     "available": sorted(available)}
-        options = available[operation]["options"]
-        unknown = sorted(set(arguments) - set(options))
-        missing = sorted(set(options) - set(arguments))
+        parameters = available[operation]["parameters"]
+        unknown = sorted(set(arguments) - set(parameters))
+        missing = sorted(set(parameters) - set(arguments))
         if unknown or missing:
             return {"ok": False, "error": "argumentos incorrectos", "unknown": unknown, "missing": missing,
-                    "expected": options}
+                    "expected": parameters}
         for parameter, value in arguments.items():
-            if value not in options[parameter]:
-                return {"ok": False, "error": f'"{value}" no es una opción de {parameter}',
-                        "options": options[parameter]}
+            problem = check_value(parameters[parameter], value)
+            if problem:
+                return {"ok": False, "error": f"{parameter}: {problem}", "expected": parameters[parameter]}
+            if parameters[parameter]["type"] == "number":
+                arguments[parameter] = float(value)
         try:
             message = self._run(name, cell, operation, arguments)
         except Exception as error:  # el resultado lo verá un cliente: que diga qué pasó
@@ -215,6 +231,13 @@ class CellManager:
             manipulator.move_joints(cell.handle.posture(arguments["posture"]))
             self._read_robot(name)
             return f'brazo en la postura "{arguments["posture"]}"'
+        if operation == "define_point":
+            world.define_point(arguments["name"], Point(arguments["x"], arguments["y"], arguments["z"]), USER)
+            return f'punto "{arguments["name"]}" en ({arguments["x"]:+.3f}, {arguments["y"]:+.3f}, {arguments["z"]:+.3f})'
+        if operation == "move_to_position":
+            manipulator.move_to_position(Point(arguments["x"], arguments["y"], arguments["z"]))
+            self._read_robot(name)
+            return f'punto de agarre en ({arguments["x"]:+.3f}, {arguments["y"]:+.3f}, {arguments["z"]:+.3f})'
         if operation == "move_above_point":
             manipulator.move_above(world.scene.objects[arguments["point"]])
             self._read_robot(name)
@@ -285,7 +308,7 @@ class CellManager:
         )
         info["operations"] = [
             {"name": op.name, "requires": op.requires, "description": op.description,
-             "options": {parameter: list(values) for parameter, values in op.options}}
+             "parameters": {parameter: dict(schema) for parameter, schema in op.parameters}}
             for op in operations
         ]
         info["world"] = self._world_summary(world)

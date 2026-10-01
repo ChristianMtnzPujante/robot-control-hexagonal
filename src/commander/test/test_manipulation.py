@@ -12,6 +12,7 @@ from commander.manipulation import (
     Manipulator,
     OperationCancelledError,
     tool_axis,
+    top_down_quaternion,
 )
 from controller_node.adapters.poe_adapter import PoeKinematicsAdapter
 from shared_kernel import (
@@ -179,3 +180,64 @@ def test_place_opens_with_the_center_at_the_target_and_retreats():
     assert (at_release.x, at_release.y, at_release.z) == pytest.approx((-0.52, 0.10, 0.165), abs=1e-3)
     end = _flange(robot.configuration)
     assert end.z == pytest.approx(0.165 + _SETTINGS.approach_distance, abs=1e-3)
+
+
+
+# --- Orientación hacia abajo y semillas de IK (01/10) -----------------------
+
+
+def test_a_tool_already_looking_down_keeps_its_orientation():
+    manipulator, _, _ = _manipulator()
+    down = manipulator.flange_pose()
+    assert top_down_quaternion(down) == (down.qx, down.qy, down.qz, down.qw)
+
+
+def test_from_home_the_tool_is_turned_to_look_down():
+    """El fallo del 01/10: en home la herramienta mira en horizontal y
+    "encima" salía de lado. Ahora la pose de agarre mira hacia abajo."""
+    home = _flange(_configuration([0] * 6))
+    assert tool_axis(home)[2] == pytest.approx(0, abs=1e-6)  # horizontal
+    qx, qy, qz, qw = top_down_quaternion(home)
+    assert tool_axis(Pose(0, 0, 0, qx, qy, qz, qw)) == pytest.approx((0, 0, -1), abs=1e-9)
+
+
+def test_grasp_pose_from_home_is_above_the_point_looking_down():
+    robot = FakeRobot(_configuration([0] * 6))
+    manipulator = Manipulator(robot, FakeGripper(robot), _KINEMATICS, _SETTINGS, log=lambda m: None)
+    grasp = manipulator.grasp_pose_for(Point(-0.5, 0.2, 0.025))
+    assert (grasp.x, grasp.y, grasp.z) == pytest.approx((-0.5, 0.2, 0.025 + 0.14))
+    assert tool_axis(grasp) == pytest.approx((0, 0, -1), abs=1e-9)
+
+
+class _OnlyFromSeed:
+    """Cinemática que solo converge si parte de `seed` (como PoE desde el
+    borde del alcance)."""
+
+    def __init__(self, seed):
+        self.seed = seed
+
+    def forward_kinematics(self, configuration):
+        return _KINEMATICS.forward_kinematics(configuration)
+
+    def compute_trajectory(self, goal, current):
+        if current != self.seed:
+            raise RuntimeError("no convergió")
+        return _KINEMATICS.compute_trajectory(goal, current)
+
+
+def test_move_to_pose_retries_from_known_postures_when_ik_fails_from_here():
+    seed = _configuration(_WORK_DEGREES)
+    robot = FakeRobot(_configuration([0] * 6))
+    manipulator = Manipulator(robot, None, _OnlyFromSeed(seed), _SETTINGS, log=lambda m: None, ik_seeds=[seed])
+    goal = _flange(_configuration([0.0, 25.0, 100.0, -35.0, -90.0, 0.0]))
+    manipulator.move_to_pose(goal)
+    end = _flange(robot.configuration)
+    assert (end.x, end.y, end.z) == pytest.approx((goal.x, goal.y, goal.z), abs=1e-3)
+
+
+def test_without_any_solution_the_error_says_it_is_probably_out_of_reach():
+    seed = _configuration(_WORK_DEGREES)
+    robot = FakeRobot(_configuration([0] * 6))
+    manipulator = Manipulator(robot, None, _OnlyFromSeed("ninguna"), _SETTINGS, log=lambda m: None, ik_seeds=[seed])
+    with pytest.raises(RuntimeError, match="fuera de alcance"):
+        manipulator.move_to_pose(Pose(3.0, 0, 0))

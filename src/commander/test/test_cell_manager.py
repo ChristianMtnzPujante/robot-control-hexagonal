@@ -12,7 +12,7 @@ from commander.cell import InvalidCellError
 from commander.cell.direct import CellHandle, configuration_from_degrees
 from commander.cell_manager import CellManager
 from commander.world import ACTION, INITIAL, SIMULATOR
-from shared_kernel import GripperState, Pose
+from shared_kernel import GripperState, Point, Pose
 
 from cell_fixtures import PADS, TOOL, cell
 
@@ -34,6 +34,10 @@ class FakeManipulator:
         self._configuration = configuration_from_degrees(joint_names, [0] * len(joint_names))
         self._grabs = grabs
         self.placed_at = None
+        self.moved_to = None
+
+    def move_to_position(self, point):
+        self.moved_to = point
 
     def current_configuration(self):
         return self._configuration
@@ -142,13 +146,13 @@ def test_pick_and_place_update_the_world_and_the_available_operations(grasping_c
     manager.create_cell(grasping_cell)
     manager.open_cell("prueba")
     operations = {op["name"]: op for op in manager.describe("prueba")["operations"]}
-    assert operations["pick"]["options"] == {"body": ["cubo"]} and "place" not in operations
+    assert operations["pick"]["parameters"]["body"]["enum"] == ["cubo"] and "place" not in operations
 
     assert manager.pick("prueba", "cubo")
     world = manager.world("prueba")
     assert world.held_body == "cubo"
     operations = {op["name"]: op for op in manager.describe("prueba")["operations"]}
-    assert "pick" not in operations and operations["place"]["options"] == {"point": ["destino"]}
+    assert "pick" not in operations and operations["place"]["parameters"]["point"]["enum"] == ["destino"]
 
     manager.place("prueba", "destino")
     assert world.held_body is None
@@ -215,3 +219,28 @@ def test_unknown_cells_and_names_are_reported(grasping_cell):
         manager.pick("prueba", "mesa")
     with pytest.raises(InvalidCellError, match='"luna"'):
         manager.place("prueba", "luna")
+
+
+def test_define_point_adds_a_destination_that_place_can_use(grasping_cell):
+    manager = _manager(FakeRuntime())
+    manager.create_cell(grasping_cell)
+    manager.open_cell("prueba")
+    result = manager.execute("prueba", "define_point", {"name": "caja", "x": 0.1, "y": -0.2, "z": 0.05})
+    assert result["ok"]
+    assert manager.world("prueba").scene.objects["caja"] == Point(0.1, -0.2, 0.05)
+    manager.pick("prueba", "cubo")
+    place = next(op for op in manager.describe("prueba")["operations"] if op["name"] == "place")
+    assert place["parameters"]["point"]["enum"] == ["destino", "caja"]
+
+
+def test_move_to_position_takes_numbers_and_rejects_anything_else(grasping_cell):
+    runtime = FakeRuntime()
+    manager = _manager(runtime)
+    manager.create_cell(grasping_cell)
+    manager.open_cell("prueba")
+    assert manager.execute("prueba", "move_to_position", {"x": 0.3, "y": 0, "z": 0.2})["ok"]
+    assert runtime.last.manipulator.moved_to == Point(0.3, 0.0, 0.2)
+    bad = manager.execute("prueba", "move_to_position", {"x": "lejos", "y": 0, "z": 0.2})
+    assert not bad["ok"] and "x:" in bad["error"] and "no es un número" in bad["error"]
+    missing = manager.execute("prueba", "move_to_position", {"x": 0.3})
+    assert not missing["ok"] and missing["missing"] == ["y", "z"]

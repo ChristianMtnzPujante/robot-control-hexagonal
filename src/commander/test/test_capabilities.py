@@ -8,7 +8,8 @@ from cell_fixtures import PADS, TOOL, cell
 
 
 def _names(operations):
-    return {op.name: dict(op.options) for op in operations}
+    """{operación: {parámetro: opciones (o el tipo, si no son cerradas)}}"""
+    return {op.name: {p: schema.get("enum", schema["type"]) for p, schema in op.parameters} for op in operations}
 
 
 def test_a_simulated_cell_with_grasp_geometry_can_pick_and_place(tree):
@@ -45,15 +46,17 @@ _FULL = frozenset({caps.ARM_JOINTS, caps.ARM_CARTESIAN, caps.GRIPPER_ACTUATE,
 
 def test_with_empty_hands_you_can_pick_but_not_place():
     ops = _names(caps.available_operations(_FULL, ["home"], ["destino"], ["cubo", "lata"], holding=False))
-    assert ops["pick"] == {"body": ("cubo", "lata")}
+    assert ops["pick"] == {"body": ["cubo", "lata"]}
     assert "place" not in ops and "close_gripper" in ops
-    assert ops["move_to_posture"] == {"posture": ("home",)}
+    assert ops["move_to_posture"] == {"posture": ["home"]}
+    assert ops["move_to_position"] == {"x": "number", "y": "number", "z": "number"}
+    assert ops["define_point"] == {"name": "string", "x": "number", "y": "number", "z": "number"}
 
 
 def test_while_holding_you_can_place_but_not_pick_or_close():
     ops = _names(caps.available_operations(_FULL, ["home"], ["destino"], ["cubo", "lata"],
                                            holding=True, held_body="cubo"))
-    assert ops["place"] == {"point": ("destino",)}
+    assert ops["place"] == {"point": ["destino"]}
     assert "pick" not in ops and "close_gripper" not in ops and "open_gripper" in ops
 
 
@@ -69,4 +72,4 @@ def test_nothing_to_pick_means_no_pick():
 
 def test_simulator_operations_come_from_simulator_capabilities():
     ops = _names(caps.available_operations(frozenset({caps.SIM_GROUND_TRUTH, caps.SIM_RESET}), [], [], [], None))
-    assert set(ops) == {"refresh_world", "reset_cell"}
+    assert set(ops) == {"define_point", "refresh_world", "reset_cell"}  # sin brazo cartesiano, sin move_to_position

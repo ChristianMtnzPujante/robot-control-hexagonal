@@ -27,7 +27,7 @@ import time
 from dataclasses import dataclass, replace
 from typing import Callable, Dict, List, Optional
 
-from shared_kernel import Body, GripperState, JointConfiguration, Pose, Scene
+from shared_kernel import Body, GripperState, JointConfiguration, Point, Pose, Scene
 
 INITIAL = "escena_inicial"
 ACTION = "accion"
@@ -36,6 +36,8 @@ SIMULATOR = "simulador"
 # Lectura del propio hardware (brazo, pinza): solo para su estado, que no
 # compite con nada, así que no entra en el orden de confianza de los cuerpos.
 HARDWARE = "hardware"
+# Lo que pide quien usa la célula (p. ej. definir un punto).
+USER = "usuario"
 _RANK = {INITIAL: 0, ACTION: 1, PERCEPTION: 2, SIMULATOR: 3}
 
 
@@ -47,8 +49,8 @@ class Provenance:
 
 @dataclass(frozen=True)
 class WorldChange:
-    """Qué ha cambiado: `kind` es "body", "robot" o "gripper"; `name` el
-    cuerpo, si aplica."""
+    """Qué ha cambiado: `kind` es "body", "point", "robot" o "gripper";
+    `name` el cuerpo o el punto, si aplica."""
 
     kind: str
     source: str
@@ -135,6 +137,13 @@ class World:
             self._body_provenance[name] = new
         self._notify(WorldChange("body", source, name))
         return True
+
+    def define_point(self, name: str, point: Point, source: str) -> None:
+        """Un punto con nombre (`Scene.objects`): un destino. Si ya existía,
+        se sustituye -- quien lo define es quien sabe dónde lo quiere."""
+        with self._lock:
+            self._scene = self._scene.with_object(name, point)
+        self._notify(WorldChange("point", source, name))
 
     def set_robot(self, configuration: JointConfiguration, source: str) -> None:
         with self._lock:

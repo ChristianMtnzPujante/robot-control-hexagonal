@@ -45,7 +45,7 @@ def test_tools_follow_the_mcp_format_with_options_as_enums(opened):
     pick = next(t for t in opened.list_tools() if t["name"] == "pick")
     assert pick["inputSchema"] == {
         "type": "object",
-        "properties": {"body": {"type": "string", "enum": ["cubo"], "description": "body"}},
+        "properties": {"body": {"type": "string", "enum": ["cubo"], "description": "cuerpo a coger"}},
         "required": ["body"],
     }
     json.dumps(opened.list_tools())  # todo serializable

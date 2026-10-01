@@ -103,8 +103,34 @@ encima de un punto, cerrar y abrir en vacío, un `pick` de la mesa que
 vuelve como error con las opciones válidas, `reset_cell` (el cubo vuelve
 a su sitio, confirmado por el simulador) y `get_world`.
 
+### Posiciones concretas y "siempre desde arriba" (01/10)
+
+- **Fallo encontrado al usar la consola:** `move_above_point` justo tras
+  abrir la célula no funcionaba. "Encima" se calculaba a lo largo del eje
+  ACTUAL de la herramienta, y en la home del CR5 ese eje es horizontal:
+  el objetivo salía de lado, a la altura de la mesa. Además, PoE resuelve
+  la IK desde la postura actual, y la home está en el borde del alcance.
+- **Corrección:** coger, dejar, ponerse encima e ir a una posición son
+  siempre desde arriba, con la herramienta hacia abajo
+  (`top_down_quaternion`; si ya mira hacia abajo, conserva su giro). Y si
+  la IK no converge desde la postura actual, `move_to_pose` reintenta
+  desde las posturas con nombre de la célula (`ik_seeds`) y, si no hay
+  solución desde ninguna, el error dice que probablemente está fuera de
+  alcance.
+- **Nuevas operaciones:** `move_to_position(x, y, z)` (lleva el punto de
+  agarre, entre los dedos, a esa posición) y `define_point(name, x, y,
+  z)` (un punto con nombre que luego aceptan `move_above_point` y
+  `place`). Las operaciones pasan de opciones cerradas a un esquema por
+  parámetro (opciones como `enum`, números, texto), que es directamente
+  el `inputSchema` de su tool.
+- Verificado en CoppeliaSim: `move_above_point` desde home, ir a una
+  posición, definir un punto, coger la lata y dejarla allí (confirmado
+  por el simulador), y el error de una posición fuera de alcance.
+
 ### Limitaciones conocidas
 
+- Coger y dejar solo desde arriba: otras direcciones necesitan un
+  planificador de agarres.
 - Mientras se sujeta un cuerpo, el mundo conserva su última pose conocida
   (viaja con la pinza). `refresh_world` en simulación la actualiza.
 - Todavía no hay percepción conectada al mundo ni modo ROS.

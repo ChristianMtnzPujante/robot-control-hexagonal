@@ -23,7 +23,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Sequence
 
 from .cell import InvalidCellError
-from .cell_manager import CellManager
+from .cell_manager import CellManager, check_value
 
 
 def _tool(name: str, description: str, properties: Optional[Dict[str, Dict[str, Any]]] = None) -> Dict[str, Any]:
@@ -67,11 +67,8 @@ class ToolBox:
             tools.append(_tool("get_world", f'Estado del mundo de "{self.active}": cuerpos (con origen y '
                                             "antigüedad de cada dato), puntos, pinza y brazo."))
             for operation in self.manager.describe(self.active)["operations"]:
-                tools.append(_tool(
-                    operation["name"],
-                    f'{operation["description"]} (célula "{self.active}")',
-                    {parameter: _choice(values, parameter) for parameter, values in operation["options"].items()},
-                ))
+                tools.append(_tool(operation["name"], f'{operation["description"]} (célula "{self.active}")',
+                                   operation["parameters"]))
         return tools
 
     # --- Pedir algo ----------------------------------------------------------------
@@ -98,9 +95,9 @@ class ToolBox:
         if unknown or missing:
             return f"argumentos incorrectos (sobran: {unknown or 'nada'}; faltan: {missing or 'nada'})"
         for parameter, value in arguments.items():
-            allowed = properties[parameter].get("enum")
-            if allowed is not None and value not in allowed:
-                return f'"{value}" no es una opción de {parameter}: {allowed}'
+            problem = check_value(properties[parameter], value)
+            if problem:
+                return f"{parameter}: {problem}"
         return None
 
     def _dispatch(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:

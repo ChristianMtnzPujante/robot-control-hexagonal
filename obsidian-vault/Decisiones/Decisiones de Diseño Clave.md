@@ -485,6 +485,19 @@ tomes una decisión de este tipo — ver [[Cómo usar este vault (Obsidian)]].
 > núcleo permite que scripts, MCP y el supervisor del Bloque 7 usen los
 > mismos casos de uso. Detalle en [[Roles del Commander]].
 
+> [!tip] (01/10) Coger, dejar y posicionarse: siempre desde arriba; IK con varias semillas
+> **Decisión.** Las operaciones de manipulación orientan la herramienta
+> hacia ABAJO (z de la brida = −z del mundo; si ya mira hacia abajo,
+> conserva su giro) en vez de conservar la orientación actual. Si la IK de
+> PoE no converge desde la postura actual, se reintenta desde las posturas
+> con nombre de la célula.
+>
+> **Motivo.** Con la orientación actual, "encima de un punto" dependía de
+> dónde estuviera el brazo: desde la home del CR5 (herramienta horizontal)
+> salía de lado y la IK fallaba. Un LLM no puede adivinar que antes tiene
+> que ir a una postura concreta. Coger desde otras direcciones queda para
+> un planificador de agarres. Detalle en [[Roles del Commander]].
+
 ## Ver también
 
 - [[Estado del Roadmap]]

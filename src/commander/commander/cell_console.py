@@ -33,7 +33,8 @@ def _signature(tool: Dict[str, Any]) -> str:
         return tool["name"]
     parts = []
     for parameter, spec in properties.items():
-        parts.append(f'{parameter}: {" | ".join(spec["enum"]) if "enum" in spec else "texto"}')
+        kind = " | ".join(spec["enum"]) if "enum" in spec else "número" if spec["type"] == "number" else "texto"
+        parts.append(f"{parameter}: {kind}")
     return f'{tool["name"]}({", ".join(parts)})'
 
 
@@ -76,7 +77,7 @@ class Console:
         finally:
             self.toolbox.close()
 
-    def _ask_arguments(self, tool: Dict[str, Any]) -> Optional[Dict[str, str]]:
+    def _ask_arguments(self, tool: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         arguments = {}
         for parameter, spec in tool["inputSchema"]["properties"].items():
             if "enum" in spec:
@@ -92,6 +93,11 @@ class Console:
                 answer = self.read(f"  {parameter} ({spec.get('description', 'texto')}) > ").strip()
                 if not answer:
                     return None
+                if spec["type"] == "number":
+                    try:
+                        answer = float(answer.replace(",", "."))  # admite coma decimal
+                    except ValueError:
+                        pass  # si no es un número, lo dirá la propia tool
                 arguments[parameter] = answer
         return arguments
 
