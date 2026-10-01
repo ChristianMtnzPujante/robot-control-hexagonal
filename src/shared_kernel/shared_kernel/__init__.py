@@ -1,4 +1,4 @@
-from geometry_kernel import Plane, Point, Pose, Scene, SphereObstacle
+from geometry_kernel import Body, Box, Cylinder, Plane, Point, Pose, Scene, Sphere, SphereObstacle
 
 from .either import Either, Left, Right, left, right
 from .errors import (
@@ -43,6 +43,10 @@ __all__ = [
     "Plane",
     "SphereObstacle",
     "Scene",
+    "Body",
+    "Box",
+    "Cylinder",
+    "Sphere",
     "Trajectory",
     "RobotConnectorError",
     "RobotConnectorPort",

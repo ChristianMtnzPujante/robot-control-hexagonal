@@ -395,6 +395,22 @@ Bloque 0 #20/#110/#111/#112/#113):**
       (RTX 4080, 16 GB). Pendiente: `gripper_target` de simulación en
       `robot_node`, el TCP de la pinza en PoE/GA y el offset del acoplador
       real, si lo hay.
+      **Cuerpos en la escena y agarre cinemático (30/09-01/10), SIN
+      VERIFICAR TODAVÍA EN COPPELIASIM:** `geometry_kernel/bodies.py`
+      (`Box`/`Cylinder`/`Sphere`, `Body` con `graspable`) y
+      `Scene.bodies`, campo aparte de `objects` porque éste lleva el
+      objetivo por ROS hasta `Commander`. `scene_builder` dibuja los
+      cuerpos. `CoppeliaSimGripperAdapter` agarra opcionalmente: al cerrar,
+      para al tocar un `Body` agarrable entre las yemas (geometría sacada
+      de las mallas de la 2F-85) y lo engancha a la pinza
+      (`setObjectParent`); `holding_object` pasa a ser real. Herramientas
+      `commander/manipulation.py` (`Manipulator`: `pick`/`place`/
+      `move_linear` solo contra puertos) y `workcells.py` (sim/real).
+      Demos `cr5_objects_sim_demo` y `cr5_pick_place_sim_demo`.
+      **Decisión (01/10):** reorganizar `commander` alrededor de una
+      descripción declarativa de la célula (YAML), con dos modos de
+      ejecución desde la misma descripción: directo (en proceso) y ROS
+      (sesiones). Fase 1 en curso.
 
 - [ ] **`load` = 0 kg con una herramienta calibrada (17/09).** La trama
       real-time dice `toolCoordinate`=1 con un TCP de

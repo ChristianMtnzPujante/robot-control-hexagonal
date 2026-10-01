@@ -33,10 +33,10 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 from coppeliasim_zmqremoteapi_client import RemoteAPIClient
-from shared_kernel import JointConfiguration, Scene
+from shared_kernel import Body, Box, Cylinder, JointConfiguration, Scene, Sphere
 
 from .coppeliasim_launcher import CoppeliaSimLaunchError, _launch, _port_open, _wait_for_port
 
@@ -62,6 +62,12 @@ _IMPORT_OPTIONS = 8 + 32 + 128
 # resolve() hace falta con `colcon build --symlink-install`: sin él,
 # __file__ apunta a build/ y parents[3] no sería la raíz.
 _ASSETS_DIR = Path(__file__).resolve().parents[3] / "assets"
+
+# Todos los cuerpos de `Scene.bodies` cuelgan de este dummy, para poder
+# borrarlos de una vez al reconstruir (ver `_clear_previous_build`).
+_BODIES_ROOT_ALIAS = "cuerpos_escena"
+_GRASPABLE_COLOR = [0.85, 0.2, 0.15]  # rojo: se puede coger
+_FIXED_COLOR = [0.6, 0.6, 0.6]  # gris: fijo (mesa, pared)
 
 
 @dataclass(frozen=True)
@@ -156,7 +162,8 @@ def build_scene(
     """Construye desde cero, en la escena actualmente cargada en el puerto
     `port`: el robot importado de `urdf_path`, en la postura
     `initial_configuration`, más un marcador visual por cada
-    `SphereObstacle` de `scene.obstacles`. Sin ningún marcador de goal: el
+    `SphereObstacle` de `scene.obstacles` y un shape por cada cuerpo de
+    `scene.bodies` (ver `_render_bodies`). Sin ningún marcador de goal: el
     goal es un objetivo de `KinematicsPort`/`PlanningPort`, no algo que
     `Scene` conozca (ver `geometry_kernel/scene.py`) -- márcalo aparte con
     `.mark_goal(...)` sobre el `CoppeliaSimRobotAdapter` que devuelve esta
@@ -212,6 +219,7 @@ def build_scene(
     # robot a cero, el frame de cada joint es el de su link hijo.
     for mount in mounts:
         _mount_tool(sim, simURDF, mount)
+    _render_bodies(sim, scene)
     for position in initial_configuration.positions:
         handle = sim.getObject(f"/{position.joint_name}")
         sim.setJointPosition(handle, position.angle_radians)
@@ -254,10 +262,96 @@ def _mount_tool(sim, simURDF, mount: ToolMount) -> None:
     sim.setObjectParent(root, parent, True)
 
 
-def robotiq_2f_85_gripper(port: int) -> "CoppeliaSimGripperAdapter":
+def _render_bodies(sim, scene: Scene) -> None:
+    """Crea un shape primitivo por cada cuerpo de `scene.bodies`, con alias
+    igual a su nombre, en su pose. Estáticos y no "respondable": el robot
+    también es cinemático, y así nada se cae ni empuja a nada al arrancar la
+    simulación. Coger un cuerpo, cuando llegue, será cambiarle el padre a
+    la pinza (agarre cinemático), no física.
+
+    Sin datos propios en el shape (tipo, medidas, `graspable`): de momento
+    la fuente de verdad es la `Scene` que los creó. Si algún día un
+    `PerceptionPort` tiene que leerlos de vuelta desde CoppeliaSim, habrá
+    que guardarlos aquí."""
+    if not scene.bodies:
+        return
+    root = sim.createDummy(0.01)
+    sim.setObjectAlias(root, _BODIES_ROOT_ALIAS)
+    for name, body in scene.bodies.items():
+        handle = _create_body_shape(sim, body)
+        sim.setObjectAlias(handle, name)
+        color = list(body.color) if body.color else (
+            _GRASPABLE_COLOR if body.graspable else _FIXED_COLOR
+        )
+        sim.setShapeColor(handle, "", sim.colorcomponent_ambient_diffuse, color)
+        sim.setObjectInt32Param(handle, sim.shapeintparam_static, 1)
+        sim.setObjectInt32Param(handle, sim.shapeintparam_respondable, 0)
+        pose = body.pose
+        sim.setObjectPose(
+            handle, -1, [pose.x, pose.y, pose.z, pose.qx, pose.qy, pose.qz, pose.qw]
+        )
+        sim.setObjectParent(handle, root, True)
+
+
+def _create_body_shape(sim, body: Body) -> int:
+    """Medidas en el formato de `createPrimitiveShape`: tamaño TOTAL en
+    x, y, z (un cilindro es [diámetro, diámetro, altura], con el eje en z,
+    igual que `Cylinder`)."""
+    shape = body.shape
+    if isinstance(shape, Box):
+        return sim.createPrimitiveShape(
+            sim.primitiveshape_cuboid, [shape.size_x, shape.size_y, shape.size_z]
+        )
+    if isinstance(shape, Cylinder):
+        diameter = 2 * shape.radius
+        return sim.createPrimitiveShape(
+            sim.primitiveshape_cylinder, [diameter, diameter, shape.height]
+        )
+    if isinstance(shape, Sphere):
+        return sim.createPrimitiveShape(
+            sim.primitiveshape_spheroid, [2 * shape.radius] * 3
+        )
+    raise TypeError(f"forma no soportada: {type(shape).__name__}")
+
+
+def _robotiq_2f_85_grasp():
+    """Geometría de agarre de la 2F-85, calculada el 30/09 de sus mallas de
+    colisión (`meshes/collision/*_finger_tip.stl`) y de la cadena del URDF,
+    en el marco de `GraspGeometry` (origen entre los nudillos, que están a
+    0.0549 m de la base): las yemas van de z = 0.0923 a 0.1631 m de la base,
+    miden 2.7 cm en y, y su cara interior está a 42.5 mm del plano medio
+    abierta (85 mm de carrera, como la ficha de Robotiq) y a 0 cerrada. La
+    tabla es la semiapertura cada 0.1 rad del nudillo (0..0.8)."""
+    from robot_node.adapters.coppeliasim_gripper_adapter import GraspGeometry
+
+    knuckle_z = 0.0549
+    return GraspGeometry(
+        left_knuckle_joint="robotiq_85_left_knuckle_joint",
+        right_knuckle_joint="robotiq_85_right_knuckle_joint",
+        left_tip_joint="robotiq_85_left_finger_tip_joint",
+        right_tip_joint="robotiq_85_right_finger_tip_joint",
+        pad_z_range=(0.0923 - knuckle_z, 0.1631 - knuckle_z),
+        pad_half_width=0.0135,
+        half_gap_by_fraction=(
+            0.0425, 0.0380, 0.0331, 0.0280, 0.0227, 0.0171, 0.0115, 0.0058, 0.0001,
+        ),
+    )
+
+
+# Dónde queda, en el marco de la brida (joint6), el centro de lo que la
+# 2F-85 agarra para que las yemas lo cubran sin tocar lo que tenga debajo:
+# a 5 cm de ancho, la punta de las yemas llega a 0.159 m de la base, así
+# que con el centro a 0.14 m sobra ~0.5 cm hasta la mesa bajo un cubo de 5 cm.
+ROBOTIQ_2F_85_GRASP_DEPTH = 0.14
+
+
+def robotiq_2f_85_gripper(
+    port: int, scene: Optional[Scene] = None
+) -> "CoppeliaSimGripperAdapter":
     """`GripperPort` para la 2F-85 de una escena construida con
     `mounts=[ROBOTIQ_2F_85_ON_CR5]`. Los joints y multiplicadores salen del
-    mismo URDF que se importó."""
+    mismo URDF que se importó. Con `scene`, además agarra (cinemático) los
+    cuerpos `graspable` de esa escena."""
     from robot_node.adapters.coppeliasim_gripper_adapter import (
         CoppeliaSimGripperAdapter,
         gripper_joints_from_urdf,
@@ -267,6 +361,8 @@ def robotiq_2f_85_gripper(port: int) -> "CoppeliaSimGripperAdapter":
     return CoppeliaSimGripperAdapter(
         sim,
         gripper_joints_from_urdf(ROBOTIQ_2F_85_URDF_PATH, ROBOTIQ_2F_85_DRIVEN_JOINT),
+        grasp=_robotiq_2f_85_grasp() if scene is not None else None,
+        graspable_bodies=scene.graspable_bodies() if scene is not None else None,
     )
 
 
@@ -291,6 +387,8 @@ def _clear_previous_build(sim, root_link_visual_alias: str) -> None:
     for handle, alias in top_level:
         if alias == root_link_visual_alias:
             sim.removeModel(handle)
+        elif alias == _BODIES_ROOT_ALIAS:
+            sim.removeObjects(list(sim.getObjectsInTree(handle, sim.handle_all, 0)))
         elif alias in ("objetivo", "obstaculo") or alias.startswith("waypoint_"):
             sim.removeObjects([handle])
 
