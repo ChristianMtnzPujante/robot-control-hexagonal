@@ -70,6 +70,7 @@ no lo arreglará solo).
 from __future__ import annotations
 
 import math
+import time
 from typing import List, Optional, Tuple
 
 from shared_kernel import JointConfiguration, JointPosition
@@ -233,6 +234,24 @@ class Cr5RealRobotAdapter:
             ) from error
         description = ROBOT_MODE_DESCRIPTIONS.get(mode, f"código desconocido ({mode})")
         return mode, description
+
+    def wait_until_idle(self, timeout_seconds: float = 15.0, poll_seconds: float = 0.1) -> bool:
+        """Espera a que RobotMode() vuelva a 5 (habilitado e inactivo):
+        `set_joints` solo ENCOLA el MovJ, así que sin esto no se sabe cuándo
+        ha terminado el movimiento -- ni para leer dónde está, ni para tocar
+        la pinza, ni para des-energizar sin cortarlo a medias. Devuelve
+        False si se agota el tiempo; no lanza, para que quien cierra la
+        sesión pueda seguir cerrándola igualmente.
+
+        Fuera de RobotConnectorPort, igual que get_robot_mode. Sustituye a
+        las copias `_wait_until_robot_idle` que tenía cada demo."""
+        deadline = time.monotonic() + timeout_seconds
+        while time.monotonic() < deadline:
+            mode, _ = self.get_robot_mode()
+            if mode == 5:
+                return True
+            time.sleep(poll_seconds)
+        return False
 
     def _ensure_enabled(self) -> None:
         if self._enabled:

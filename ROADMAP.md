@@ -405,12 +405,28 @@ Bloque 0 #20/#110/#111/#112/#113):**
       de las mallas de la 2F-85) y lo engancha a la pinza
       (`setObjectParent`); `holding_object` pasa a ser real. Herramientas
       `commander/manipulation.py` (`Manipulator`: `pick`/`place`/
-      `move_linear` solo contra puertos) y `workcells.py` (sim/real).
-      Demos `cr5_objects_sim_demo` y `cr5_pick_place_sim_demo`.
+      `move_linear` solo contra puertos; `compute_trajectory` interpola en
+      espacio articular, así que las bajadas son rectas cartesianas de
+      verdad, objetivo a objetivo).
       **Decisión (01/10):** reorganizar `commander` alrededor de una
-      descripción declarativa de la célula (YAML), con dos modos de
-      ejecución desde la misma descripción: directo (en proceso) y ROS
-      (sesiones). Fase 1 en curso.
+      descripción declarativa de la célula (`CellDescription`, YAML en
+      `scenarios/`, catálogo de modelos), con dos modos de ejecución desde
+      la misma descripción: directo (en proceso) y ROS (sesiones). Motivo:
+      13 de 22 demos montaban su mundo a mano porque el camino de
+      `Commander` no espera resultados, no conoce la escena ni sabe de
+      pinzas. **Fase 1 hecha (01/10), sin verificar en CoppeliaSim:**
+      `commander/cell/` (descripción, catálogo, lector estricto,
+      `open_direct`), `scenarios/mesa_cubo.yaml`, demos genéricas
+      `cell_demo` y `pick_place_demo` (sustituyen a `workcells.py`,
+      `cr5_objects_sim_demo` y `cr5_pick_place_sim_demo`),
+      `Cr5RealRobotAdapter.wait_until_idle` (la espera estaba copiada en
+      cinco demos; quedan cuatro por migrar). Cinemática construida del
+      URDF: en seco, mismos resultados que el CR5 fijo. 213 tests.
+      Pendiente: fase 2 (`Commander`/`ControlSession` desde la
+      descripción, pinza de simulación en `robot_node`, `gripper_state`),
+      fase 3 (adaptadores de puertos por ROS y acciones con resultado:
+      las tools del Bloque 6), fase 4 (migrar demos). Detalle y deuda en
+      el vault, "Células y Escenarios".
 
 - [ ] **`load` = 0 kg con una herramienta calibrada (17/09).** La trama
       real-time dice `toolCoordinate`=1 con un TCP de

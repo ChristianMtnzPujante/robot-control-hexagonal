@@ -2,8 +2,8 @@
 brazo y una pinza, escritas SOLO contra los puertos del dominio
 (`RobotConnectorPort`, `GripperPort`, `KinematicsPort`). No saben si debajo
 hay CoppeliaSim o el CR5 real: eso lo decide quien las monta (ver
-`workcells.py`). Un script de prueba se reduce a definir la escena y pedir
-`pick(...)`/`place(...)`.
+`cell/direct.py`). Un script de prueba se reduce a describir la célula
+(`scenarios/*.yaml`) y pedir `pick(...)`/`place(...)`.
 
 Lo que cambia entre simulación y robot real no está aquí, se inyecta:
 - `wait_until_idle`: el CR5 real ENCOLA los MovJ; hay que esperar a que
@@ -60,6 +60,10 @@ class OperationCancelledError(Exception):
     """`confirm` dijo que no: se para antes de moverse."""
 
 
+class NoGripperError(Exception):
+    """Se pidió abrir, cerrar, coger o dejar en una célula sin pinza."""
+
+
 @dataclass(frozen=True)
 class GraspSettings:
     """Parámetros de un agarre. `grasp_offset` depende de CÓMO está montada
@@ -106,7 +110,7 @@ class Manipulator:
     def __init__(
         self,
         robot: RobotConnectorPort,
-        gripper: GripperPort,
+        gripper: Optional[GripperPort],
         kinematics: KinematicsPort,
         settings: GraspSettings,
         wait_until_idle: Callable[[], None] = lambda: None,
@@ -185,6 +189,8 @@ class Manipulator:
         """`set_opening` vuelve en cuanto la orden se acepta (ver
         GripperPort): se espera a que la pinza detecte un objeto o deje de
         moverse, para que la secuencia sea de verdad secuencial."""
+        if self.gripper is None:
+            raise NoGripperError("esta célula no tiene pinza montada")
         self.gripper.set_opening(opening)
         deadline = time.monotonic() + self.settings.gripper_timeout_seconds
         state = self.gripper.get_state()
@@ -218,6 +224,8 @@ class Manipulator:
         """Coge `body`: se coloca sobre él (a `approach_distance`), baja en
         recta, cierra, comprueba `holding_object` y sube `lift_distance`.
         Si no coge nada, abre, se retira y lanza `GraspFailedError`."""
+        if self.gripper is None:
+            raise NoGripperError("esta célula no tiene pinza montada")
         if not body.graspable:
             raise ValueError(f'"{name}" no es un cuerpo que se pueda coger (graspable=False)')
         settings = self.settings

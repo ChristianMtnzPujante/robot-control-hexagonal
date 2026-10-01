@@ -15,7 +15,7 @@ generación de código libre).
 Este vault es también mi primer proyecto real en Obsidian — si es la primera
 vez que lo abres, empieza por [[Cómo usar este vault (Obsidian)]].
 
-> [!info] Estado en una frase (30/09/2026)
+> [!info] Estado en una frase (01/10/2026)
 > Dos cinemáticas reales e intercambiables: PoE y **CGA/gafro**
 > ([[GaKinematicsAdapter]], desde el 17/09, comparadas en CoppeliaSim con
 > resultados idénticos en pose). `Scene`/percepción real (fichero + pseudo-perceptor) y
@@ -25,6 +25,8 @@ vez que lo abres, empieza por [[Cómo usar este vault (Obsidian)]].
 > ejecutada de punta a punta, no solo contra servidores de mentira.
 > La pinza Robotiq 2F-85 funciona contra el hardware (29/09) y en
 > CoppeliaSim montada en el CR5 (30/09, [[CoppeliaSimGripperAdapter]]).
+> Desde el 01/10 las células (robot, pinza y escena) se describen en YAML
+> y se construyen sin scripts a medida ([[Células y Escenarios]]).
 > **Objetivo inicial desde el 29/09:** redactar el artículo de revisión +
 > propuesta de ontología del dominio, con escenas de ejemplo de este repo
 > ([[Ontología del Dominio (lenguaje CGA)]]).

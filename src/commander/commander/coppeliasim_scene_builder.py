@@ -40,14 +40,14 @@ from shared_kernel import Body, Box, Cylinder, JointConfiguration, Scene, Sphere
 
 from .coppeliasim_launcher import CoppeliaSimLaunchError, _launch, _port_open, _wait_for_port
 
-_CR5_URDF_PATH = "/home/chris/ros2_ws/src/TCP-IP-ROS-6AXis/dobot_description/urdf/cr5_robot.urdf"
+CR5_URDF_PATH = "/home/chris/ros2_ws/src/TCP-IP-ROS-6AXis/dobot_description/urdf/cr5_robot.urdf"
 # simURDF.import sustituye el literal "package://" por este prefijo -- las
 # mallas del URDF referencian "package://dobot_description/meshes/...", así
 # que el prefijo debe ser el directorio que CONTIENE a dobot_description/
 # (no dobot_description/ en sí, o el path quedaría duplicado).
-_CR5_URDF_PACKAGE_PREFIX = "/home/chris/ros2_ws/src/TCP-IP-ROS-6AXis/"
-_CR5_JOINT_NAMES = ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6"]
-_CR5_TIP_NAME = "Link6_visual"
+CR5_URDF_PACKAGE_PREFIX = "/home/chris/ros2_ws/src/TCP-IP-ROS-6AXis/"
+CR5_JOINT_NAMES = ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6"]
+CR5_TIP_NAME = "Link6_visual"
 
 # Bit-flags de simURDF.import (ver addOns/URDF importer.lua, misma
 # combinación que trae por defecto el diálogo del importador salvo por el
@@ -137,10 +137,10 @@ def build_cr5_scene(
     al CR5)."""
     return build_scene(
         port=port,
-        urdf_path=_CR5_URDF_PATH,
-        urdf_package_prefix=_CR5_URDF_PACKAGE_PREFIX,
-        joint_names=_CR5_JOINT_NAMES,
-        tip_name=_CR5_TIP_NAME,
+        urdf_path=CR5_URDF_PATH,
+        urdf_package_prefix=CR5_URDF_PACKAGE_PREFIX,
+        joint_names=CR5_JOINT_NAMES,
+        tip_name=CR5_TIP_NAME,
         root_link_visual_alias="dummy_link_visual",
         initial_configuration=initial_configuration,
         scene=scene,

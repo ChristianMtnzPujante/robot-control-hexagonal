@@ -409,6 +409,42 @@ tomes una decisión de este tipo — ver [[Cómo usar este vault (Obsidian)]].
 > **Pendiente:** el TCP de la pinza en la cinemática (hoy PoE/GA siguen
 > apuntando a la brida) y el offset del acoplador real, si lo hay.
 
+> [!tip] (30/09) Cuerpos en `Scene.bodies`, campo aparte de `objects`; agarre cinemático en el adaptador de simulación
+> **Decisión.** Los objetos físicos de la escena son `Body` (forma, pose,
+> `graspable`) en un campo nuevo `Scene.bodies`, no un cambio de tipo de
+> `Scene.objects`. Y "coger" en simulación es un **agarre cinemático**
+> dentro de [[CoppeliaSimGripperAdapter]]: una regla geométrica (el cuerpo
+> está entre las yemas y cabe → los dedos paran al tocarlo y el cuerpo se
+> engancha a la pinza), no física.
+>
+> **Motivo.** `objects` lleva el objetivo del movimiento por ROS hasta
+> `Commander`; cambiarle el tipo rompía ese camino. El agarre cinemático es
+> coherente con el brazo, que tampoco usa física, es determinista y prueba
+> la secuencia y los puertos; la física del agarre es frágil y encaja mejor
+> en el Bloque 8. Con la pinza real no hace falta nada de esto: lo hacen el
+> firmware (gOBJ) y la realidad, y los dos lo exponen igual en
+> `GripperState.holding_object`.
+
+> [!tip] (01/10) Descripción declarativa de la célula (YAML) y dos modos de ejecución desde ella
+> **Decisión.** Una `CellDescription` (robot, herramientas, cinemática,
+> posturas con nombre y `Scene` inicial), escrita en YAML
+> (`scenarios/*.yaml`) y con un catálogo de modelos, es la fuente única de
+> la que se construye una célula. Desde ella, dos modos: **directo**
+> (adaptadores en el mismo proceso, para probar rápido y para hardware
+> nuevo) y **ROS** (sesiones de `Commander`, procesos separados), contra
+> simulación o real. YAML para la célula y la escena; Python para la
+> secuencia hasta que haga falta otra cosa.
+>
+> **Motivo.** Los scripts ad hoc no eran desorden sino síntoma: el camino
+> de `Commander` no esperaba resultados, no conocía la escena ni sabía de
+> pinzas, así que cada prueba montaba su mundo a mano (13 de 22 demos). La
+> descripción declarativa es además el "manifest" pendiente del Bloque 9,
+> y lo que podrá cargar o generar un LLM. Mantener el modo directo evita
+> que probar hardware nuevo dependa de toda la pila ROS.
+>
+> **Plan por fases** y deuda conocida en [[Células y Escenarios]]. Fase 1
+> hecha el 01/10.
+
 ## Ver también
 
 - [[Estado del Roadmap]]

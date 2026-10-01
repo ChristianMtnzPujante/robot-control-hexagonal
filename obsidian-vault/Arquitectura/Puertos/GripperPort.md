@@ -38,7 +38,8 @@ algún día una pinza llega por un canal independiente, merecerá su propio
   CR5. **Verificado contra la pinza real (29/09).**
 - [[CoppeliaSimGripperAdapter]]: la misma 2F-85 importada desde su URDF
   en CoppeliaSim, en modo cinemático. **Verificado en CoppeliaSim
-  (30/09).**
+  (30/09).** Agarre cinemático opcional, con `holding_object` real (sin
+  verificar en CoppeliaSim todavía).
 
 ## Quién lo usa
 

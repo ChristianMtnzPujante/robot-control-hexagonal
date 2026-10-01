@@ -1,0 +1,52 @@
+# CR5 + Robotiq 2F-85 atornillado a una mesa, con un cubo y una lata que se
+# pueden coger. Es la escena de la primera prueba de agarre (30/09), antes
+# en cr5_objects_sim_demo.pick_scene(). Formato: commander/cell/loader.py.
+#
+# SOLO SIMULACIÓN tal cual: para el robot real hay que medir la mesa, la
+# posición del cubo y grasp_offset (montaje real de la pinza), y pasar
+# robot.target a real con su host.
+
+name: mesa_cubo
+
+robot:
+  model: cr5
+  target: sim
+  initial_posture: home
+
+tools:
+  - model: robotiq_2f_85      # grasp_offset: el del modelo (0.14 m) en sim
+
+kinematics: poe
+
+simulator:
+  port: 23000
+  step_pause_seconds: 0.04
+
+postures:
+  home: [0, 0, 0, 0, 0, 0]
+  # joint2 + joint3 + joint4 = 90°: la brida mira hacia abajo, en
+  # (-0.571, -0.141, 0.265) según PoE -- justo encima del cubo.
+  pre_agarre: [0, 20, 100, -30, -90, 0]
+
+scene:
+  bodies:
+    mesa:                      # el robot está atornillado a ella: tablero en z = 0
+      shape: box
+      size: [1.1, 1.0, 0.05]
+      position: [-0.35, -0.1, -0.025]
+    cubo:                      # 5 cm: cabe de sobra en los 85 mm de la 2F-85
+      shape: box
+      size: [0.05, 0.05, 0.05]
+      position: [-0.571, -0.141, 0.025]
+      graspable: true
+    lata:
+      shape: cylinder
+      radius: 0.025
+      height: 0.10
+      position: [-0.45, -0.35, 0.05]
+      graspable: true
+      color: [0.15, 0.35, 0.85]
+  points:
+    # Dónde dejar el cubo: su punto de partida girado -40° alrededor de la
+    # base, en la zona libre de la mesa (lejos de la lata). Apoyado.
+    destino: [-0.528, 0.259, 0.025]

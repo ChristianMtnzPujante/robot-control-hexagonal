@@ -111,6 +111,19 @@ cableado. Resultados numéricos y hallazgos ya analizados en
   [[2026-09-07]]. Su docstring avisa explícitamente: no des-energiza el
   robot al terminar, hay que correr `cr5_disable_demo.py` después.
 
+## Escenarios en YAML (01/10, modo directo)
+
+Demos genéricas sobre [[Células y Escenarios]]: valen para cualquier
+`scenarios/*.yaml`, en sim o en real (`--target real --host ...`).
+
+- **`cell_demo`** — abre la célula y, con `--posture`, la lleva a una
+  postura con nombre. Para ver una escena nueva.
+- **`pick_place_demo`** — `--pick <cuerpo> --place <punto>`: postura de
+  trabajo, coger y dejar con `Manipulator`. En real pide confirmación
+  antes de cada bajada. **Sin verificar en CoppeliaSim** (sí en seco).
+  Sustituye a `cr5_objects_sim_demo`/`cr5_pick_place_sim_demo` (30/09,
+  retiradas el 01/10 sin haber llegado a ejecutarse en CoppeliaSim).
+
 ## Verificar en CoppeliaSim antes de tocar hardware real
 
 - **`cr5_gripper_sim_demo.py`** (`commander`, 30/09) — el CR5 con la

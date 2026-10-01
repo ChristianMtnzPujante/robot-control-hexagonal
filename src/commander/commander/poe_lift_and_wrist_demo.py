@@ -157,13 +157,8 @@ def _wait_until_robot_idle(robot: Cr5RealRobotAdapter, timeout_seconds: float = 
     camino. Si se agota el timeout sin llegar a 5, sigue igualmente (no
     bloquear el cierre para siempre) -- close() des-energizará el estado
     en el que esté, que es mejor que no des-energizar nunca."""
-    deadline = time.monotonic() + timeout_seconds
-    while time.monotonic() < deadline:
-        mode, _ = robot.get_robot_mode()
-        if mode == 5:
-            return
-        time.sleep(0.1)
-    print(f"Aviso: RobotMode() no volvió a 5 en {timeout_seconds}s, cerrando igualmente.")
+    if not robot.wait_until_idle(timeout_seconds):
+        print(f"Aviso: RobotMode() no volvió a 5 en {timeout_seconds}s, cerrando igualmente.")
 
 
 def _run_real_phase(args: argparse.Namespace, combined) -> None:

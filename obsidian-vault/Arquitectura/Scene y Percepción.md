@@ -15,8 +15,19 @@ Scene(
     planes: Dict[str, Plane],
     obstacles: Dict[str, SphereObstacle],
     objects: Dict[str, Point],
+    bodies: Dict[str, Body],      # desde el 30/09
 )
 ```
+
+**`bodies` (30/09)**: cuerpos sólidos con forma (`Box`, `Cylinder`,
+`Sphere`), pose del centro, `graspable` y color opcional
+(`geometry_kernel/bodies.py`). Es lo que se dibuja en CoppeliaSim y lo que
+la pinza puede coger. `Body.bounding_sphere()` da la esfera envolvente,
+para los planificadores que solo saben de esferas. Va en un campo aparte
+de `objects` a propósito: `objects` son puntos con nombre y lleva el
+objetivo del movimiento (`"objetivo"`) por ROS hasta `Commander`; cambiarle
+el tipo rompía ese camino. `bodies` todavía no viaja por ROS. Se describe
+en YAML en [[Células y Escenarios]].
 
 Inmutable a propósito, como el resto de value objects del dominio: cada
 `with_plane`/`with_obstacle`/`with_object`/`merge` devuelve una `Scene`

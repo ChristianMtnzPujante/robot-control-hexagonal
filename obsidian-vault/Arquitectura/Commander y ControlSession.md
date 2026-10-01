@@ -59,8 +59,15 @@ Parte del trabajo de generalización del Bloque 9.
 > robot real ahora esperan a que `RobotMode()` vuelva a "inactivo" antes
 > de cerrar la sesión.
 
+> [!todo] Reorganización en curso (01/10)
+> `Commander` pasará a construir sesiones desde una `CellDescription`
+> (YAML) en vez de 15 parámetros sueltos, y a montar el mundo simulado.
+> Fase 1 (modo directo) hecha; esta nota cambia en la fase 2. Ver
+> [[Células y Escenarios]].
+
 ## Ver también
 
+- [[Células y Escenarios]] — descripción declarativa de la célula y modos de ejecución
 - [[Puertos y Adaptadores]]
 - [[Scene y Percepción]]
 - [[Arquitectura Hexagonal]]
