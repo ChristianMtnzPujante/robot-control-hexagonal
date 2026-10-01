@@ -395,8 +395,8 @@ Bloque 0 #20/#110/#111/#112/#113):**
       (RTX 4080, 16 GB). Pendiente: `gripper_target` de simulación en
       `robot_node`, el TCP de la pinza en PoE/GA y el offset del acoplador
       real, si lo hay.
-      **Cuerpos en la escena y agarre cinemático (30/09-01/10), SIN
-      VERIFICAR TODAVÍA EN COPPELIASIM:** `geometry_kernel/bodies.py`
+      **Cuerpos en la escena y agarre cinemático (30/09-01/10),
+      verificado en CoppeliaSim el 01/10:** `geometry_kernel/bodies.py`
       (`Box`/`Cylinder`/`Sphere`, `Body` con `graspable`) y
       `Scene.bodies`, campo aparte de `objects` porque éste lleva el
       objetivo por ROS hasta `Commander`. `scene_builder` dibuja los
@@ -414,7 +414,9 @@ Bloque 0 #20/#110/#111/#112/#113):**
       la misma descripción: directo (en proceso) y ROS (sesiones). Motivo:
       13 de 22 demos montaban su mundo a mano porque el camino de
       `Commander` no espera resultados, no conoce la escena ni sabe de
-      pinzas. **Fase 1 hecha (01/10), sin verificar en CoppeliaSim:**
+      pinzas. **Fase 1 hecha y verificada en CoppeliaSim (01/10):**
+      `pick_place_demo --scenario mesa_cubo` cogió el cubo (apertura 0,45,
+      `holding_object` True) y lo dejó en el punto pedido al milímetro.
       `commander/cell/` (descripción, catálogo, lector estricto,
       `open_direct`), `scenarios/mesa_cubo.yaml`, demos genéricas
       `cell_demo` y `pick_place_demo` (sustituyen a `workcells.py`,

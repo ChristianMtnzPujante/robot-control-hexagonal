@@ -87,7 +87,7 @@ hay robots sin pinza. Cómo entró en el repositorio:
 | Adaptador | Estado |
 |---|---|
 | [[Robotiq2FGripperAdapter]] | Real, **verificado contra la pinza física (29/09)**; comparte el socket de [[Cr5RealRobotAdapter]] |
-| [[CoppeliaSimGripperAdapter]] | Simulación, **verificado en CoppeliaSim (30/09)**: 2F-85 desde su URDF, cinemática. Agarre cinemático opcional con `holding_object` real (30/09, **sin verificar en CoppeliaSim**) |
+| [[CoppeliaSimGripperAdapter]] | Simulación, **verificado en CoppeliaSim (30/09)**: 2F-85 desde su URDF, cinemática. Agarre cinemático opcional con `holding_object` real (30/09, **verificado en CoppeliaSim el 01/10**) |
 
 Quién lo cablea: [[RobotNode]] (`gripper_target`).
 

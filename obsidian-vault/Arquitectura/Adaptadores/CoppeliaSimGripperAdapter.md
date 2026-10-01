@@ -45,7 +45,7 @@ el límite y los multiplicadores **del propio URDF**, sin copiarlos a mano.
   acepta la orden. Sin física no hay nada que siga moviendo los dedos
   después, y quien sondea `get_state()` (como `lift_and_grip_demo`) ve lo
   mismo que acabaría viendo con la real.
-- **Agarre cinemático, no físico (30/09, sin verificar en CoppeliaSim).**
+- **Agarre cinemático, no físico (30/09; verificado en CoppeliaSim el 01/10: cogió el cubo (apertura 0,45, `holding_object` True) y lo dejó en (−0,528, +0,259, +0,025), justo el punto pedido).**
   Opcional: solo si se le da una `GraspGeometry` y los cuerpos `graspable`
   de la `Scene`. Al cerrar, construye un marco de agarre con las posiciones
   de los joints de nudillos y puntas (los shapes pueden venir

@@ -14,8 +14,8 @@ Más reciente primero:
 
 - [[2026-10-01]] — se reorganiza `commander`: células descritas en YAML
   (`scenarios/`) y construidas sin scripts a medida, con dos modos de
-  ejecución. Fase 1 hecha ([[Células y Escenarios]]), sin verificar en
-  CoppeliaSim.
+  ejecución. Fase 1 hecha y verificada en CoppeliaSim: coge el cubo y lo
+  deja en el punto pedido ([[Células y Escenarios]]).
 - [[2026-09-30]] — la pinza Robotiq 2F-85 funciona también en CoppeliaSim:
   URDF oficial montado en la brida del CR5 y [[CoppeliaSimGripperAdapter]].
   Decisión: un URDF por pieza, montadas por código, no uno combinado. Por

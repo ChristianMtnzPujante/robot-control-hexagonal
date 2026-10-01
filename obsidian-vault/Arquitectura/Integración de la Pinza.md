@@ -151,7 +151,7 @@ TCP, así que se deja fuera del adaptador.
 | El nodo sin pinza no cambia | Nodo real con `gripper_target` por defecto | ✅ 29/09: solo avisos "ignorado" |
 | `gripper_state` publicado | — | ⏳ no existe todavía |
 | Pinza en simulación | `cr5_gripper_sim_demo` y `lift_and_grip_demo --phase sim`, con [[CoppeliaSimGripperAdapter]] | ✅ 30/09: pinza montada en la brida, abre/cierra y gira con la muñeca |
-| Coger y dejar un cuerpo en simulación (agarre cinemático) | `pick_place_demo --scenario mesa_cubo`, ver [[Células y Escenarios]] | ⏳ en seco con PoE sí; en CoppeliaSim todavía no |
+| Coger y dejar un cuerpo en simulación (agarre cinemático) | `pick_place_demo --scenario mesa_cubo`, ver [[Células y Escenarios]] | ✅ 01/10: apertura 0,45 sobre el cubo, dejado en el punto pedido al milímetro |
 
 ## Historia corta
 

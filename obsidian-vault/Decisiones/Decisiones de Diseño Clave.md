@@ -445,6 +445,26 @@ tomes una decisión de este tipo — ver [[Cómo usar este vault (Obsidian)]].
 > **Plan por fases** y deuda conocida en [[Células y Escenarios]]. Fase 1
 > hecha el 01/10.
 
+> [!tip] (01/10) Un formato YAML por tipo de elemento, compilados en una célula y en un grafo de nodos
+> **Decisión.** Tres clases de YAML que no se mezclan: (1) **elementos del
+> mundo**, uno por fichero: `descriptions/robots/`, `tools/`, `scenes/`;
+> (2) **tipos de nodo**, los `config/<nodo>.yaml` que ya existían (su
+> interfaz: parámetros, topics, timers); (3) la **célula**
+> (`descriptions/cells/`), que referencia a los demás y declara las
+> instancias de nodo. Compilar la célula valida cada pieza con su esquema,
+> las relaciones entre piezas, y construye el grafo de nodos para
+> comprobar suscripciones sin publicador, tipos y QoS incompatibles. El
+> catálogo de modelos pasa de Python a YAML (los adaptadores siguen en
+> código, nombrados desde el YAML). La guía de campos se genera de los
+> propios esquemas. Claves en inglés, comentarios en castellano. Los
+> problemas del grafo son errores, salvo los publicadores sin suscriptor.
+>
+> **Motivo.** La célula de la fase 1 mezclaba en un fichero cosas de
+> naturaleza distinta (el robot, la escena, la tarea), y los nodos ya
+> tenían su propio formato. Separar permite reutilizar un robot o una
+> escena en varias células. El grafo existe porque ROS no avisa de una QoS
+> incompatible ni de un topic mal escrito: simplemente no llega nada.
+
 ## Ver también
 
 - [[Estado del Roadmap]]

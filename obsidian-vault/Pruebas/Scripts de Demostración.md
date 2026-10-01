@@ -120,7 +120,8 @@ Demos genéricas sobre [[Células y Escenarios]]: valen para cualquier
   postura con nombre. Para ver una escena nueva.
 - **`pick_place_demo`** — `--pick <cuerpo> --place <punto>`: postura de
   trabajo, coger y dejar con `Manipulator`. En real pide confirmación
-  antes de cada bajada. **Sin verificar en CoppeliaSim** (sí en seco).
+  antes de cada bajada. **Verificado en CoppeliaSim el 01/10** con
+  `mesa_cubo`: coge el cubo y lo deja en el punto pedido.
   Sustituye a `cr5_objects_sim_demo`/`cr5_pick_place_sim_demo` (30/09,
   retiradas el 01/10 sin haber llegado a ejecutarse en CoppeliaSim).
 

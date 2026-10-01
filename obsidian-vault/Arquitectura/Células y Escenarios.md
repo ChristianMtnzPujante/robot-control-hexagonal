@@ -10,10 +10,11 @@ Código: `src/commander/commander/cell/`. Escenarios:
 `scenarios/*.yaml` en la raíz del repo. Decisión de diseño:
 [[Decisiones de Diseño Clave]] (01/10).
 
-> [!warning] Estado (01/10): fase 1 hecha y probada en seco, sin verificar en CoppeliaSim
-> 213 tests en verde y la secuencia de pick-and-place comprobada con PoE
-> (cinemática del URDF) y robot/pinza falsos. Falta lanzarla en
-> CoppeliaSim (`pick_place_demo`).
+> [!success] Estado (01/10): fase 1 hecha y verificada en CoppeliaSim
+> `pick_place_demo --scenario mesa_cubo --pick cubo --place destino`:
+> cogió el cubo (apertura 0,45, `holding_object` True) y lo dejó en
+> (−0,528, +0,259, +0,025), justo el punto pedido, apoyado en la mesa.
+> 213 tests en verde.
 
 ## Por qué
 
