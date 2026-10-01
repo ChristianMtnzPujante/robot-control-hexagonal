@@ -466,6 +466,25 @@ tomes una decisión de este tipo — ver [[Cómo usar este vault (Obsidian)]].
 > escena en varias células. El grafo existe porque ROS no avisa de una QoS
 > incompatible ni de un topic mal escrito: simplemente no llega nada.
 
+> [!tip] (01/10) Roles del Commander: gestor de células y modelo del mundo primero; las tools del LLM, según capacidades
+> **Decisión.** `Commander` es el núcleo de aplicación (casos de uso); el
+> servidor MCP es un adaptador de entrada, no parte de él. Prioridad
+> ahora: **gestor de células** (crear células y escenas válidas, abrirlas y
+> cerrarlas; un solo `Commander` para varias) y **modelo del mundo**
+> (crearlo desde la escena inicial y mantenerlo al día). El **guardián**
+> (verify-then-act, confirmación humana en el real) queda para después.
+> Al crear o cambiar una célula, el servidor MCP consulta a `Commander` sus
+> **capacidades** y su estado y actualiza qué tools ofrece
+> (`tools/list_changed` de MCP). Las capacidades las declara cada
+> adaptador. Las tools largas esperarán a terminar (con límite) y habrá
+> tools de estado y cancelar.
+>
+> **Motivo.** Lo que se pueda hacer depende de la situación (con o sin
+> pinza, simulación o real, sujetando algo o no), y eso lo sabe quien
+> construye la célula y lleva el mundo, no el cliente. Separar MCP del
+> núcleo permite que scripts, MCP y el supervisor del Bloque 7 usen los
+> mismos casos de uso. Detalle en [[Roles del Commander]].
+
 ## Ver también
 
 - [[Estado del Roadmap]]

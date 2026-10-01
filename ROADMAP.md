@@ -921,6 +921,14 @@ Bloque 0 #20/#110/#111/#112/#113):**
 > `F4a.5`). La propuesta ya fija MCP como mecanismo (A.3), lo que cierra la
 > tarea "MCP vs REST/gRPC" de abajo. Estado: sin empezar.
 
+- [ ] **Roles del Commander (decidido 01/10):** `Commander` es el núcleo
+      de aplicación y el servidor MCP un adaptador de entrada. Primero:
+      gestor de células (crear células/escenas válidas, abrir, cerrar;
+      uno para varias) y modelo del mundo (crearlo y actualizarlo).
+      Capacidades declaradas por cada adaptador: al crear o cambiar una
+      célula, MCP consulta capacidades y estado y actualiza sus tools
+      (`tools/list_changed`). Guardián (verify-then-act, confirmación en
+      real) después. Vault: "Roles del Commander".
 - [ ] Diseñar la superficie de la API: qué operaciones expone el backend
       como tools de alto nivel (crear `ControlSession`, listar estrategias
       de planificador disponibles, consultar percepción/escena del

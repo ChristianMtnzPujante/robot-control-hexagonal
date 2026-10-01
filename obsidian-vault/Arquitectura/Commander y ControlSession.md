@@ -65,8 +65,13 @@ Parte del trabajo de generalización del Bloque 9.
 > Fase 1 (modo directo) hecha; esta nota cambia en la fase 2. Ver
 > [[Células y Escenarios]].
 
+> [!todo] Roles decididos (01/10)
+> Gestor de células y modelo del mundo primero; capacidades para que el
+> servidor MCP sepa qué tools ofrecer. Ver [[Roles del Commander]].
+
 ## Ver también
 
+- [[Roles del Commander]] — qué hace y qué no, y la relación con MCP
 - [[Células y Escenarios]] — descripción declarativa de la célula y modos de ejecución
 - [[Puertos y Adaptadores]]
 - [[Scene y Percepción]]
