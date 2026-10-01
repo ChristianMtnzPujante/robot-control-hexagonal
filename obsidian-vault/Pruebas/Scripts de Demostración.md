@@ -117,6 +117,11 @@ Demos genéricas sobre [[Células y Escenarios]]: valen para cualquier
 célula de `descriptions/cells/` (`--cell`), en sim o en real
 (`--target real --host ...`).
 
+- **`cell_console`** — cliente MANUAL de `Commander` (01/10): enseña las
+  tools disponibles en cada momento tal cual las vería un LLM, deja
+  elegir tool y opciones, y avisa de qué tools cambian tras cada llamada.
+  `ros2 run commander cell_console --cell mesa_cubo --open`. Verificado en
+  CoppeliaSim. Ver [[Roles del Commander]].
 - **`cell_demo`** — abre la célula y, con `--posture`, la lleva a una
   postura con nombre. Para ver una escena nueva.
 - **`pick_place_demo`** — `--pick <cuerpo> --place <punto>`: postura de

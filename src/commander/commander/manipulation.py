@@ -221,6 +221,13 @@ class Manipulator:
         at_center = Pose(center.x, center.y, center.z, current.qx, current.qy, current.qz, current.qw)
         return _offset(at_center, tool_axis(current), -self.settings.grasp_offset)
 
+    def move_above(self, center: Point) -> None:
+        """Se coloca encima de `center`, a `approach_distance` del punto de
+        agarre a lo largo del eje de la herramienta, sin cambiar su
+        orientación: el mismo sitio desde el que `pick`/`place` bajan."""
+        grasp = self.grasp_pose_for(center)
+        self.move_to_pose(_offset(grasp, tool_axis(grasp), -self.settings.approach_distance))
+
     def pick(self, name: str, body: Body) -> GripperState:
         """Coge `body`: se coloca sobre él (a `approach_distance`), baja en
         recta, cierra, comprueba `holding_object` y sube `lift_distance`.

@@ -72,14 +72,44 @@ simulador. Cada cuerpo guarda su origen y su momento (`describe` da la
 antigüedad en segundos). El estado del brazo y de la pinza viene del
 propio hardware (o del simulador) y no compite con nada.
 
+### Las tools y el cliente manual (01/10)
+
+Antes del LLM, control manual viendo exactamente lo que vería el LLM:
+
+- **`commander/tools.py` → `ToolBox`**: `list_tools()` da las tools
+  disponibles AHORA en el formato de MCP (`name`, `description`,
+  `inputSchema` con las opciones como `enum`); `call(nombre, args)`
+  devuelve siempre JSON, también los errores (`{"ok": false, "error":
+  ...}`), para que un LLM pueda leerlos y corregirse. Dos niveles:
+  configuración (`list_cells`, `create_cell`, `open_cell`, `close_cell`,
+  `select_cell`) y operación sobre la **célula activa** (`get_world` y las
+  operaciones de `describe`). El servidor MCP será una capa fina encima.
+- **`CellManager.execute`**: ejecuta cualquier operación anunciada,
+  comprobando antes que está disponible ahora y que cada argumento es una
+  opción ofrecida. Todas tienen ejecutor: `move_to_posture`,
+  `move_above_point` (nuevo `Manipulator.move_above`), `open_gripper`,
+  `close_gripper` (en sim, cerrar sobre un cuerpo lo coge), `pick`,
+  `place`, `refresh_world`, `reset_cell` (cierra y reabre: escena
+  reconstruida).
+- **`ros2 run commander cell_console [--cell mesa_cubo --open]`**: enseña
+  las tools numeradas, pide las opciones, enseña el JSON del resultado y,
+  tras cada llamada, qué tools han aparecido o desaparecido (lo que MCP
+  notificará con `tools/list_changed`). `j` enseña el JSON de las tools tal
+  cual. La línea de estado de arriba es solo para la persona.
+
+Verificado en CoppeliaSim con la consola (entrada por guion): postura,
+`pick` (aparece `place`, desaparecen `pick` y `close_gripper`), `place`,
+encima de un punto, cerrar y abrir en vacío, un `pick` de la mesa que
+vuelve como error con las opciones válidas, `reset_cell` (el cubo vuelve
+a su sitio, confirmado por el simulador) y `get_world`.
+
 ### Limitaciones conocidas
 
 - Mientras se sujeta un cuerpo, el mundo conserva su última pose conocida
   (viaja con la pinza). `refresh_world` en simulación la actualiza.
-- `describe` anuncia operaciones que aún no tienen ejecutor
-  (`move_above_point`, abrir/cerrar, `reset_cell`): llegan con el
-  ejecutor de habilidades. Hoy solo `pick` y `place` pasan por el gestor.
 - Todavía no hay percepción conectada al mundo ni modo ROS.
+- Las tools son síncronas: una tool larga bloquea hasta terminar (sin
+  cancelar todavía).
 
 ## Capacidades: de dónde salen
 

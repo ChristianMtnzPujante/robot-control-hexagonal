@@ -939,8 +939,17 @@ Bloque 0 #20/#110/#111/#112/#113):**
       (`cell/capabilities.py`). Con `mesa_cubo`: tras `pick` se ofrece
       `place` y no `pick`; tras `place` el cubo está en el destino
       (`accion`), confirmado al refrescar (`simulador`). 258 tests.
-      Pendiente: ejecutor para el resto de operaciones anunciadas,
-      percepción conectada al mundo, modo ROS, servidor MCP mínimo.
+      **Cliente manual (01/10, verificado en CoppeliaSim):** antes del
+      LLM, control manual con la misma vista que tendrá él. `ToolBox`
+      (`commander/tools.py`): tools disponibles ahora en formato MCP
+      (opciones como `enum`) y resultados siempre en JSON, errores
+      incluidos; célula activa para las tools de operación.
+      `CellManager.execute` da ejecutor a todas las operaciones anunciadas
+      (postura, encima de un punto, abrir/cerrar, pick, place, refrescar,
+      reconstruir). `ros2 run commander cell_console` enseña las tools,
+      pide opciones y avisa de qué tools cambian (`tools/list_changed`).
+      Pendiente: percepción conectada al mundo, modo ROS, servidor MCP
+      (capa fina sobre `ToolBox`), tools largas cancelables.
 - [ ] Diseñar la superficie de la API: qué operaciones expone el backend
       como tools de alto nivel (crear `ControlSession`, listar estrategias
       de planificador disponibles, consultar percepción/escena del

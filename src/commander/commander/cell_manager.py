@@ -179,6 +179,78 @@ class CellManager:
                             ACTION)
         world.set_gripper(state, ACTION)
 
+    # --- Ejecutar una operación anunciada -----------------------------------------
+
+    def execute(self, name: str, operation: str, arguments: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+        """Ejecuta una de las operaciones que `describe` ofrece AHORA, con
+        argumentos que tienen que ser opciones ofrecidas. Es la puerta que
+        usan el cliente de consola y, más adelante, el servidor MCP: un
+        cliente (o un LLM) puede pedir algo que ya no se ofrece, y eso es un
+        resultado con error, no una excepción. Devuelve solo tipos JSON."""
+        arguments = dict(arguments or {})
+        cell = self._open(name)
+        available = {op["name"]: op for op in self.describe(name)["operations"]}
+        if operation not in available:
+            return {"ok": False, "error": f'"{operation}" no está disponible ahora',
+                    "available": sorted(available)}
+        options = available[operation]["options"]
+        unknown = sorted(set(arguments) - set(options))
+        missing = sorted(set(options) - set(arguments))
+        if unknown or missing:
+            return {"ok": False, "error": "argumentos incorrectos", "unknown": unknown, "missing": missing,
+                    "expected": options}
+        for parameter, value in arguments.items():
+            if value not in options[parameter]:
+                return {"ok": False, "error": f'"{value}" no es una opción de {parameter}',
+                        "options": options[parameter]}
+        try:
+            message = self._run(name, cell, operation, arguments)
+        except Exception as error:  # el resultado lo verá un cliente: que diga qué pasó
+            return {"ok": False, "error": f"{type(error).__name__}: {error}"}
+        return {"ok": True, "message": message}
+
+    def _run(self, name: str, cell: _Cell, operation: str, arguments: Dict[str, str]) -> str:
+        manipulator, world = cell.handle.manipulator, cell.world
+        if operation == "move_to_posture":
+            manipulator.move_joints(cell.handle.posture(arguments["posture"]))
+            self._read_robot(name)
+            return f'brazo en la postura "{arguments["posture"]}"'
+        if operation == "move_above_point":
+            manipulator.move_above(world.scene.objects[arguments["point"]])
+            self._read_robot(name)
+            return f'herramienta encima de "{arguments["point"]}"'
+        if operation in ("open_gripper", "close_gripper"):
+            state = manipulator.open() if operation == "open_gripper" else manipulator.close()
+            # Al cerrar, la simulada puede haber cogido algo que estuviera entre las yemas.
+            world.set_gripper(state, ACTION, held_body=getattr(manipulator.gripper, "held_body", None))
+            message = f"pinza en {state.opening:.2f}"
+            if world.held_body:
+                message += f', sujeta "{world.held_body}"'
+            elif state.holding_object:
+                message += ", sujeta algo"
+            return message
+        if operation == "pick":
+            if self.pick(name, arguments["body"]):
+                return f'sujeta "{arguments["body"]}"'
+            raise RuntimeError(f'la pinza cerró sin coger "{arguments["body"]}"')
+        if operation == "place":
+            held = cell.world.held_body
+            self.place(name, arguments["point"])
+            return f'"{held}" dejado en "{arguments["point"]}"' if held else f'pinza abierta en "{arguments["point"]}"'
+        if operation == "refresh_world":
+            self.refresh_world(name)
+            return "mundo actualizado desde el simulador"
+        if operation == "reset_cell":
+            self.close_cell(name)
+            self.open_cell(name)
+            return "escena reconstruida desde su descripción"
+        raise RuntimeError(f'"{operation}" se anuncia pero no tiene ejecutor')
+
+    def _read_robot(self, name: str) -> None:
+        cell = self._open(name)
+        cell.world.set_robot(cell.handle.manipulator.current_configuration(),
+                             SIMULATOR if self._is_sim(cell) else HARDWARE)
+
     # --- Para el servidor MCP ------------------------------------------------------
 
     def describe(self, name: str) -> Dict[str, Any]:
