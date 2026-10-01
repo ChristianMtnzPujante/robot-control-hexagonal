@@ -23,7 +23,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Callable, Iterator, Optional, Sequence, Tuple
 
-from shared_kernel import JointConfiguration, JointPosition, KinematicsPort, Scene
+from shared_kernel import JointConfiguration, JointPosition, KinematicsPort, Pose, Scene
 
 from ..manipulation import GraspSettings, Manipulator
 from .adapters import REAL_GRIPPERS, REAL_ROBOTS, SIM_GRIPPERS, tool_mount
@@ -49,6 +49,13 @@ class SimulationView:
 
     def body_position(self, name: str) -> Tuple[float, float, float]:
         return tuple(self._sim.getObjectPosition(self._sim.getObject(f"/{name}"), -1))
+
+    def body_pose(self, name: str) -> Pose:
+        """Pose exacta (posición y orientación) del cuerpo `name`, en el
+        marco del mundo, que es el de la base del robot (ver
+        `coppeliasim_scene_builder`)."""
+        x, y, z, qx, qy, qz, qw = self._sim.getObjectPose(self._sim.getObject(f"/{name}"), -1)
+        return Pose(x, y, z, qx, qy, qz, qw)
 
 
 @dataclass
@@ -135,7 +142,7 @@ def _open_sim(cell: CellDescription, confirm, log) -> Iterator[CellHandle]:
         scene=cell.scene,
         mounts=[tool_mount(tool.model, model)] if tool else [],
     )
-    gripper = SIM_GRIPPERS[tool.model.sim_adapter](tool.model, port, cell.scene) if tool else None
+    gripper = SIM_GRIPPERS[tool.model.sim_adapter].build(tool.model, port, cell.scene) if tool else None
     manipulator = Manipulator(
         robot,
         gripper,
@@ -158,11 +165,11 @@ def _open_sim(cell: CellDescription, confirm, log) -> Iterator[CellHandle]:
 def _open_real(cell: CellDescription, confirm, log) -> Iterator[CellHandle]:
     model = cell.robot.model
     tool = cell.tool
-    robot = REAL_ROBOTS[model.real_adapter](model, cell.robot.host)
+    robot = REAL_ROBOTS[model.real_adapter].build(model, cell.robot.host)
     gripper = None
     try:
         if tool is not None:
-            gripper = REAL_GRIPPERS[tool.model.real_adapter](tool.model, robot)
+            gripper = REAL_GRIPPERS[tool.model.real_adapter].build(tool.model, robot)
             gripper.activate()
 
         def wait_until_idle() -> None:

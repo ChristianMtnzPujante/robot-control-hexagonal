@@ -3,6 +3,9 @@ citan como `adapter: <nombre>`. Es la única parte de una célula que es
 código: un robot o una pinza que hable un protocolo nuevo necesita su
 adaptador aquí; uno que solo cambie de medidas o de montaje, no.
 
+Cada entrada declara además qué CAPACIDADES aporta (`capabilities.py`):
+es una propiedad de la implementación, así que vive junto a su código.
+
 Las importaciones van DENTRO de cada factoría: así compilar una célula
 (que comprueba que los nombres existen) no necesita CoppeliaSim, ni el
 robot, ni pygafro.
@@ -10,11 +13,24 @@ robot, ni pygafro.
 
 from __future__ import annotations
 
-from typing import Callable, Dict
+from dataclasses import dataclass
+from typing import Callable, Dict, FrozenSet
 
 from shared_kernel import GripperPort, RobotConnectorPort, Scene
 
+from . import capabilities as caps
 from .elements import RobotModel, ToolModel
+
+
+@dataclass(frozen=True)
+class AdapterEntry:
+    """`build` construye el adaptador; `provides` dice qué capacidades
+    aporta para un modelo concreto (p. ej. una pinza simulada solo detecta
+    el agarre si su modelo trae la geometría de las yemas)."""
+
+    build: Callable
+    provides: Callable[[object], FrozenSet[str]]
+    doc: str
 
 
 def _cr5_tcp(model: RobotModel, host: str) -> RobotConnectorPort:
@@ -63,15 +79,44 @@ def _robotiq_modbus_flange(tool: ToolModel, robot: RobotConnectorPort) -> Grippe
     return Robotiq2FGripperAdapter(robot.command_socket)
 
 
-REAL_ROBOTS: Dict[str, Callable[[RobotModel, str], RobotConnectorPort]] = {
-    "cr5_tcp": _cr5_tcp,
+REAL_ROBOTS: Dict[str, AdapterEntry] = {
+    "cr5_tcp": AdapterEntry(
+        _cr5_tcp,
+        lambda model: frozenset({caps.ARM_JOINTS, caps.ARM_CARTESIAN}),
+        "CR5 por TCP/IP (puertos 29999 y 30004).",
+    ),
 }
-SIM_GRIPPERS: Dict[str, Callable[[ToolModel, int, Scene], GripperPort]] = {
-    "coppeliasim_urdf_gripper": _coppeliasim_urdf_gripper,
+SIM_GRIPPERS: Dict[str, AdapterEntry] = {
+    "coppeliasim_urdf_gripper": AdapterEntry(
+        _coppeliasim_urdf_gripper,
+        lambda tool: frozenset({caps.GRIPPER_ACTUATE} | ({caps.GRIPPER_GRASP_DETECTION} if tool.pads else set())),
+        "Pinza de URDF en CoppeliaSim, cinemática; agarre cinemático si el modelo trae `grasp.pads`.",
+    ),
 }
-REAL_GRIPPERS: Dict[str, Callable[[ToolModel, RobotConnectorPort], GripperPort]] = {
-    "robotiq_modbus_flange": _robotiq_modbus_flange,
+REAL_GRIPPERS: Dict[str, AdapterEntry] = {
+    "robotiq_modbus_flange": AdapterEntry(
+        _robotiq_modbus_flange,
+        lambda tool: frozenset({caps.GRIPPER_ACTUATE, caps.GRIPPER_GRASP_DETECTION}),
+        "Robotiq 2F por Modbus a través del 485 de la brida del CR5 (detecta el agarre por firmware, gOBJ).",
+    ),
 }
+
+
+def cell_capabilities(cell) -> FrozenSet[str]:
+    """Capacidades de una `CellDescription`: las del robot (simulado o
+    real), las de su herramienta y las que salen de combinarlas."""
+    robot = cell.robot.model
+    if cell.robot.target == "sim":
+        result = set(caps.SIM_ROBOT)
+    else:
+        result = set(REAL_ROBOTS[robot.real_adapter].provides(robot))
+    tool = cell.tool
+    if tool is not None:
+        adapter = tool.model.sim_adapter if cell.robot.target == "sim" else tool.model.real_adapter
+        registry = SIM_GRIPPERS if cell.robot.target == "sim" else REAL_GRIPPERS
+        if adapter:
+            result |= registry[adapter].provides(tool.model)
+    return caps.derive(result)
 
 
 def tool_mount(tool: ToolModel, robot: RobotModel):

@@ -21,68 +21,10 @@ from commander.cell.guide import GUIDE_PATH, render
 from commander.cell.scene_format import parse_scene, rpy_degrees_to_quaternion
 from shared_kernel import Box, Cylinder, Point
 
+from cell_fixtures import ROBOT as _ROBOT, SCENE as _SCENE, TOOL as _TOOL, cell as _cell
+
 _CR5_URDF = Path("~/ros2_ws/src/TCP-IP-ROS-6AXis/dobot_description/urdf/cr5_robot.urdf").expanduser()
 needs_cr5_urdf = pytest.mark.skipif(not _CR5_URDF.exists(), reason="sin el URDF del CR5 en esta máquina")
-
-_ROBOT = {
-    "urdf": "robot.urdf",
-    "package_prefix": ".",
-    "base_link": "base",
-    "tip_link": "flange",
-    "joint_names": ["j1", "j2", "j3"],
-    "postures": {"home": [0, 0, 0]},
-    "sim": {"root_alias": "base_visual"},
-    "real": {"adapter": "cr5_tcp"},
-}
-_TOOL = {
-    "urdf": "tool.urdf",
-    "package_prefix": ".",
-    "driven_joint": "finger",
-    "mounts": {"juguete": {"parent_joint": "j3", "position": [0, 0, 0.02], "rpy_degrees": [0, 0, 90]}},
-    "grasp": {"offset": 0.1},
-    "sim": {"adapter": "coppeliasim_urdf_gripper"},
-    "real": {"adapter": "robotiq_modbus_flange"},
-}
-_SCENE = {
-    "bodies": {"cubo": {"shape": "box", "size": [0.05, 0.05, 0.05], "position": [0.3, 0, 0.025], "graspable": True}},
-    "points": {"destino": [0.3, 0.2, 0.025]},
-}
-
-
-def _cell(**overrides):
-    cell = {
-        "name": "prueba",
-        "robot": {"ref": "robots/juguete.yaml"},
-        "tools": [{"ref": "tools/pinza.yaml"}],
-        "scene": {"ref": "scenes/mesa.yaml"},
-        "postures": {"trabajo": [10, 20, 30]},
-    }
-    cell.update(overrides)
-    return cell
-
-
-@pytest.fixture
-def tree(tmp_path):
-    """Un árbol descriptions/ de juguete; devuelve una función que compila
-    una célula (dict) sobre él, con piezas opcionalmente modificadas."""
-
-    def write(kind, name, data):
-        (tmp_path / kind).mkdir(exist_ok=True)
-        (tmp_path / kind / f"{name}.yaml").write_text(yaml.safe_dump(data))
-
-    for kind in ("robots", "tools"):
-        (tmp_path / kind).mkdir()
-        (tmp_path / kind / "robot.urdf").write_text("<robot/>")
-        (tmp_path / kind / "tool.urdf").write_text("<robot/>")
-
-    def compile_with(cell=None, robot=None, tool=None, scene=None):
-        write("robots", "juguete", robot or _ROBOT)
-        write("tools", "pinza", tool or _TOOL)
-        write("scenes", "mesa", scene if scene is not None else _SCENE)
-        return parse_cell(cell or _cell(), tmp_path)
-
-    return compile_with
-
 
 # --- La célula real del repo -----------------------------------------------------
 
@@ -134,12 +76,12 @@ def test_a_cell_merges_robot_and_task_postures(tree):
 
 def test_a_task_posture_cannot_reuse_a_robot_posture_name(tree):
     with pytest.raises(InvalidCellError, match='"home" ya la define el robot'):
-        tree(cell=_cell(postures={"home": [1, 2, 3]}))
+        tree(cell_data=_cell(postures={"home": [1, 2, 3]}))
 
 
 def test_a_posture_needs_one_value_per_joint(tree):
     with pytest.raises(InvalidCellError, match="2 valores y el robot 3 joints"):
-        tree(cell=_cell(postures={"corta": [1, 2]}))
+        tree(cell_data=_cell(postures={"corta": [1, 2]}))
 
 
 def test_the_tool_needs_a_mount_for_this_robot(tree):
@@ -155,21 +97,21 @@ def test_mount_offsets_become_a_pose(tree):
 
 
 def test_a_cell_without_tools_or_scene_is_valid(tree):
-    cell = tree(cell={"name": "solo_brazo", "robot": {"ref": "robots/juguete.yaml"}})
+    cell = tree(cell_data={"name": "solo_brazo", "robot": {"ref": "robots/juguete.yaml"}})
     assert cell.tool is None and cell.scene.bodies == {}
 
 
 def test_real_needs_host_measured_offset_and_real_sections(tree):
     real = {"ref": "robots/juguete.yaml", "target": "real"}
     with pytest.raises(InvalidCellError, match="host"):
-        tree(cell=_cell(robot=real))
+        tree(cell_data=_cell(robot=real))
     with pytest.raises(InvalidCellError, match="grasp_offset MEDIDO"):
-        tree(cell=_cell(robot=dict(real, host="10.0.0.1")))
+        tree(cell_data=_cell(robot=dict(real, host="10.0.0.1")))
     measured = _cell(robot=dict(real, host="10.0.0.1"), tools=[{"ref": "tools/pinza.yaml", "grasp_offset": 0.15}])
-    assert tree(cell=measured).tool.effective_grasp_offset == 0.15
+    assert tree(cell_data=measured).tool.effective_grasp_offset == 0.15
     sim_only = {k: v for k, v in _ROBOT.items() if k != "real"}
     with pytest.raises(InvalidCellError, match='no tiene sección "real"'):
-        tree(cell=measured, robot=sim_only)
+        tree(cell_data=measured, robot=sim_only)
 
 
 def test_unknown_adapters_are_caught_when_compiling(tree):
@@ -192,7 +134,7 @@ def test_unknown_adapters_are_caught_when_compiling(tree):
 )
 def test_cell_errors_say_what_is_wrong(tree, cell, message):
     with pytest.raises(InvalidCellError, match=re.escape(message)):
-        tree(cell=cell)
+        tree(cell_data=cell)
 
 
 def test_compile_cell_prefixes_errors_with_the_file(tmp_path):

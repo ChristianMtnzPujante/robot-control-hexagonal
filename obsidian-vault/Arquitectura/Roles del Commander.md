@@ -40,6 +40,47 @@ flowchart LR
 | Ejecutor de habilidades | Después | `move_to`, `pick`, `place`... con resultado; las tools largas esperan a terminar (con límite) y hay tools de estado y cancelar. |
 | Guardián (verify-then-act, F1.6) | Después | Comprobar antes de ejecutar (IK, límites, colisiones) y la confirmación humana en el real. |
 
+## Estado (01/10): gestor, mundo y capacidades hechos, en modo directo
+
+Verificado en CoppeliaSim con `mesa_cubo` (script de comprobación, sin
+demo nueva): al abrir, el mundo toma del simulador la pose exacta del cubo
+y se ofrece `pick` con `cubo | lata`; tras `pick` desaparecen `pick` y
+`close_gripper` y aparece `place`; tras `place` el cubo está en el destino
+con origen `accion`; `refresh_world` lo confirma con origen `simulador`.
+258 tests.
+
+- **`commander/cell_manager.py` → `CellManager`**: `create_cell` (de un
+  nombre, una ruta, un dict o una `CellDescription`; si no es válida, el
+  error dice dónde), `open_cell`, `close_cell`, `list_cells`,
+  `refresh_world`, `describe` (solo tipos JSON, para MCP) y `subscribe`
+  (eventos `created`, `opened`, `closed`, `world`). Recibe cómo abrir una
+  célula (`open_runtime`): hoy `open_direct`; en la fase 2, sesiones ROS.
+  Se llama así para no confundirlo con el nodo ROS `Commander`, que le
+  delegará. `pick` y `place` son las primeras habilidades, sobre todo para
+  que el mundo se entere de sus efectos.
+- **`commander/world.py` → `World`**: ver la regla abajo.
+- **`cell/capabilities.py`** y las declaraciones en `cell/adapters.py`.
+
+### El mundo: regla de confianza
+
+Orden `simulador > percepción > acción > escena inicial`, con una regla
+más: **nuestras propias acciones invalidan lo visto antes** (cambian el
+mundo). Un dato se acepta si no es más antiguo que el que hay y su fuente
+tiene igual o más rango, o es una acción. Así la percepción posterior a un
+`place` corrige lo esperado, y en simulación la percepción nunca pisa al
+simulador. Cada cuerpo guarda su origen y su momento (`describe` da la
+antigüedad en segundos). El estado del brazo y de la pinza viene del
+propio hardware (o del simulador) y no compite con nada.
+
+### Limitaciones conocidas
+
+- Mientras se sujeta un cuerpo, el mundo conserva su última pose conocida
+  (viaja con la pinza). `refresh_world` en simulación la actualiza.
+- `describe` anuncia operaciones que aún no tienen ejecutor
+  (`move_above_point`, abrir/cerrar, `reset_cell`): llegan con el
+  ejecutor de habilidades. Hoy solo `pick` y `place` pasan por el gestor.
+- Todavía no hay percepción conectada al mundo ni modo ROS.
+
 ## Capacidades: de dónde salen
 
 1. Cada adaptador del registro (`cell/adapters.py`) declara qué ofrece —

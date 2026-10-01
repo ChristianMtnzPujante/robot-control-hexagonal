@@ -121,7 +121,7 @@ def _run_sim_phase(args: argparse.Namespace, current, combined) -> None:
         scene=Scene.empty(),
         mounts=[tool_mount(tool, load_robot("cr5"))],
     )
-    gripper = SIM_GRIPPERS[tool.sim_adapter](tool, _ZMQ_PORT, Scene.empty())
+    gripper = SIM_GRIPPERS[tool.sim_adapter].build(tool, _ZMQ_PORT, Scene.empty())
     print(f"\nBrazo: subiendo ({len(combined)} waypoints)...")
     for waypoint in combined:
         robot.set_joints(waypoint)

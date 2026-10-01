@@ -64,7 +64,7 @@ def run(work_degrees: List[float], cycles: int = 2, port: int = _ZMQ_PORT) -> No
         scene=Scene.empty(),
         mounts=[tool_mount(tool, load_robot("cr5"))],
     )
-    gripper = SIM_GRIPPERS[tool.sim_adapter](tool, port, Scene.empty())
+    gripper = SIM_GRIPPERS[tool.sim_adapter].build(tool, port, Scene.empty())
 
     work = _configuration(work_degrees)
     print("Brazo: de home a la postura de trabajo...")

@@ -929,6 +929,18 @@ Bloque 0 #20/#110/#111/#112/#113):**
       célula, MCP consulta capacidades y estado y actualiza sus tools
       (`tools/list_changed`). Guardián (verify-then-act, confirmación en
       real) después. Vault: "Roles del Commander".
+      **Hecho (01/10, modo directo, verificado en CoppeliaSim):**
+      `CellManager` (`commander/cell_manager.py`: crear/abrir/cerrar/listar
+      células, `refresh_world`, `describe` en JSON para MCP, `subscribe`),
+      `World` (`commander/world.py`: origen y momento de cada dato; orden
+      simulador > percepción > acción > inicial, y las acciones propias
+      invalidan lo visto antes) y capacidades declaradas por cada
+      adaptador con operaciones disponibles según el estado
+      (`cell/capabilities.py`). Con `mesa_cubo`: tras `pick` se ofrece
+      `place` y no `pick`; tras `place` el cubo está en el destino
+      (`accion`), confirmado al refrescar (`simulador`). 258 tests.
+      Pendiente: ejecutor para el resto de operaciones anunciadas,
+      percepción conectada al mundo, modo ROS, servidor MCP mínimo.
 - [ ] Diseñar la superficie de la API: qué operaciones expone el backend
       como tools de alto nivel (crear `ControlSession`, listar estrategias
       de planificador disponibles, consultar percepción/escena del
