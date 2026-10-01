@@ -1,0 +1,30 @@
+# CR5 + Robotiq 2F-85 contra el robot REAL, para la prueba controlada
+# (ros2 run commander real_cell_check). Formato: «Célula» en la guía.
+# Ensayo previo en simulación con el mismo fichero: --target sim --yes.
+
+name: cr5_real_prueba
+
+robot:
+  ref: cr5
+  target: real
+  host: 192.168.5.1
+  speed_factor: 10          # % de velocidad global; real_cell_check --speed lo cambia
+  initial_posture: home     # solo cuenta en el ensayo en simulación
+
+tools:
+  - ref: robotiq_2f_85
+    # SIN MEDIR: es el valor del modelo (0.14 m, brida → centro entre los
+    # dedos, sin acoplador). Medirlo en el montaje real antes de la etapa 5
+    # (agarre); las etapas 0-4 no se acercan a la mesa.
+    grasp_offset: 0.14
+
+scene:
+  ref: laboratorio_cr5
+
+kinematics: poe
+
+postures:
+  # Brida mirando hacia abajo en (-0.473, -0.141, 0.469) según PoE: el punto
+  # de agarre queda ~0.33 m sobre la mesa. COMPROBAR que el camino desde
+  # donde esté el robot hasta aquí está despejado.
+  prueba_segura: [0, 0, 90, 0, -90, 0]

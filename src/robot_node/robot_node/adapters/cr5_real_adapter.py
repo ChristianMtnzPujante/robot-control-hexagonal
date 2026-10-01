@@ -131,7 +131,16 @@ class Cr5RealRobotAdapter:
         realtime_port: int = REALTIME_PORT,
         movj_cp: int = _DEFAULT_MOVJ_CP,
         joint_limits_degrees: Optional[List[float]] = None,
+        speed_factor: Optional[int] = None,
     ):
+        # speed_factor (1-100): velocidad global en %, fijada con
+        # SpeedFactor(ratio) justo tras habilitar el robot (manual TCP/IP
+        # V4.6.5: multiplica la velocidad de todos los movimientos). None
+        # conserva lo que tuviera el controlador al entrar en modo TCP.
+        if speed_factor is not None and not 1 <= speed_factor <= 100:
+            raise ValueError(f"speed_factor debe estar entre 1 y 100, no {speed_factor}")
+        self._speed_factor = speed_factor
+        #
         # joint_names[i] es el nombre de dominio del eje físico J{i+1} del
         # CR5 -- el propio robot no tiene nombres, solo un array ordenado
         # de 6 ángulos (ver q_actual en _cr5_protocol.py), así que esta
@@ -278,6 +287,18 @@ class Cr5RealRobotAdapter:
                 f"EnableRobot() devolvió el código de error {error_code}"
             )
         self._enabled = True
+        if self._speed_factor is not None:
+            # Después de EnableRobot: ningún comando se acepta antes de
+            # RequestControl, y así el primer MovJ ya sale a esta velocidad.
+            error_code = self._commands.send_command(f"SpeedFactor({self._speed_factor})")
+            if error_code != 0:
+                raise Cr5ProtocolError(
+                    f"SpeedFactor({self._speed_factor}) devolvió el código de error {error_code}"
+                )
+
+    @property
+    def speed_factor(self) -> Optional[int]:
+        return self._speed_factor
 
     @property
     def is_enabled(self) -> bool:

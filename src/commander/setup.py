@@ -37,6 +37,8 @@ setup(
             'pick_place_demo = commander.pick_place_demo:main',
             'cell_guide = commander.cell.guide:main',
             'cell_console = commander.cell_console:main',
+            'real_cell_check = commander.real_cell_check:main',
+            'gripper_cycle_check = commander.gripper_cycle_check:main',
             'cr5_go_home_sim_demo = commander.cr5_go_home_sim_demo:main',
             'cr5_semicircle_sim_demo = commander.cr5_semicircle_sim_demo:main',
             'cr5_circle_sim_demo = commander.cr5_circle_sim_demo:main',

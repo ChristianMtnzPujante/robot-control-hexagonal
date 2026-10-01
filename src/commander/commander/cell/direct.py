@@ -173,7 +173,7 @@ def _open_sim(cell: CellDescription, confirm, log) -> Iterator[CellHandle]:
 def _open_real(cell: CellDescription, confirm, log) -> Iterator[CellHandle]:
     model = cell.robot.model
     tool = cell.tool
-    robot = REAL_ROBOTS[model.real_adapter].build(model, cell.robot.host)
+    robot = REAL_ROBOTS[model.real_adapter].build(model, cell.robot.host, cell.robot.speed_factor)
     gripper = None
     try:
         if tool is not None:

@@ -20,6 +20,9 @@ bodies:
     graspable: true
     color: [0.15, 0.35, 0.85]
 
+planes:
+  mesa: {point: [0, 0, 0], normal: [0, 0, 1]}   # el tablero, donde apoya el robot
+
 points:
   # El punto de partida del cubo girado -40° alrededor de la base, en la
   # zona libre de la mesa (lejos de la lata). Apoyado.

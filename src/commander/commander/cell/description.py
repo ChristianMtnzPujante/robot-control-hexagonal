@@ -41,6 +41,7 @@ class RobotSpec:
     target: str = "sim"
     host: Optional[str] = None
     initial_posture: Optional[str] = None
+    speed_factor: Optional[int] = None  # solo real: velocidad global en %, 1-100
 
 
 @dataclass(frozen=True)
@@ -90,6 +91,8 @@ class CellDescription:
                 raise InvalidCellError('robot.target "real" necesita robot.host (la IP del controlador)')
             if not robot.real_adapter:
                 raise InvalidCellError(f'el robot "{robot.name}" no tiene sección "real": solo simulación')
+        if self.robot.speed_factor is not None and not 1 <= self.robot.speed_factor <= 100:
+            raise InvalidCellError(f"robot.speed_factor debe estar entre 1 y 100, no {self.robot.speed_factor}")
         if self.kinematics not in KINEMATICS:
             raise InvalidCellError(f'kinematics "{self.kinematics}" no es válida: {", ".join(KINEMATICS)}')
         if len(self.tools) > 1:
@@ -123,3 +126,6 @@ class CellDescription:
         """La misma célula contra otro destino (p. ej. probar en sim lo que
         se describió para el real). Vuelve a validar."""
         return replace(self, robot=replace(self.robot, target=target, host=host or self.robot.host))
+
+    def with_speed_factor(self, speed_factor: Optional[int]) -> "CellDescription":
+        return replace(self, robot=replace(self.robot, speed_factor=speed_factor))

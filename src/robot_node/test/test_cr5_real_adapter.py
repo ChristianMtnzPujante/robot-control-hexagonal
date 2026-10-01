@@ -192,6 +192,25 @@ def test_set_joints_honours_a_custom_movj_cp(fake_cr5):
         adapter.close()
 
 
+def test_speed_factor_is_set_right_after_enabling_and_before_the_first_movj(fake_cr5):
+    adapter, commands_received = fake_cr5(_command_recording, [0.0] * 6, speed_factor=10)
+    try:
+        configuration = JointConfiguration.create([JointPosition(n, 0.0) for n in _JOINT_NAMES]).value
+        adapter.set_joints(configuration)
+        assert [c.split(b"(")[0] for c in commands_received] == [
+            b"RequestControl", b"EnableRobot", b"SpeedFactor", b"MovJ",
+        ]
+        assert commands_received[2] == b"SpeedFactor(10)"
+    finally:
+        adapter.close()
+
+
+@pytest.mark.parametrize("speed", [0, 101])
+def test_speed_factor_out_of_range_is_rejected_before_connecting(speed):
+    with pytest.raises(ValueError, match="speed_factor"):
+        Cr5RealRobotAdapter("127.0.0.1", _JOINT_NAMES, speed_factor=speed)
+
+
 def test_set_joints_raises_on_a_non_zero_error_code(fake_cr5):
     def _command_rejecting_movj(received):
         return _command_recording(received, movj_response=b"-1,{},MovJ();")

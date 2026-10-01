@@ -1,0 +1,30 @@
+# La mesa del laboratorio del CR5, para pruebas contra el robot REAL
+# (real_cell_check). Formato: «Escena» en la guía.
+#
+# ANTES DE LA PRIMERA PRUEBA, MEDIR (todo en el marco de la base del robot):
+#   - planes.mesa: la altura del tablero. Si el robot está atornillado a la
+#     misma mesa en la que se trabaja, es z = 0 (la base del URDF del CR5
+#     está en la cara de apoyo).
+#   - points.prueba_*: puntos EN EL AIRE para la etapa 3. Comprobar con el
+#     teach pendant o a ojo que no hay nada entre ellos.
+#   - bodies: solo para la etapa 5 (agarre), con el objeto colocado donde
+#     se diga aquí. Empezar con algo blando (espuma, cartón).
+
+planes:
+  mesa: {point: [0, 0, 0], normal: [0, 0, 1]}   # MEDIR
+
+points:
+  # Punto de agarre (entre los dedos), con la herramienta hacia abajo. A
+  # más de 0.30 m de la mesa, por delante del robot ("delante" es -x).
+  prueba_1: [-0.47, -0.14, 0.33]   # justo bajo la postura prueba_segura
+  prueba_2: [-0.40, 0.10, 0.33]
+  prueba_3: [-0.50, -0.30, 0.30]
+
+# bodies:                           # etapa 5: descomentar y MEDIR
+#   cubo_espuma:
+#     shape: box
+#     size: [0.05, 0.05, 0.05]
+#     position: [-0.47, -0.14, 0.025]   # centro: apoyado en la mesa
+#     graspable: true
+# y un punto donde dejarlo, p. ej.:
+#   points.destino_espuma: [-0.40, 0.10, 0.025]

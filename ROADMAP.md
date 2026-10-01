@@ -956,6 +956,24 @@ Bloque 0 #20/#110/#111/#112/#113):**
       siempre desde arriba (herramienta hacia abajo) e IK reintentada
       desde las posturas con nombre; sin solución, error "fuera de
       alcance".
+      **Prueba controlada para el robot real (01/10, ensayada en
+      simulación, PENDIENTE contra el CR5):** `ros2 run commander
+      real_cell_check` con la célula `cr5_real_prueba` y la escena
+      `laboratorio_cr5` (por medir). Etapas: lectura, pinza, postura
+      segura, puntos en el aire, recta; agarre solo con
+      `--allow-contact`. Cada movimiento se planifica en seco
+      (`Manipulator.dry_run`), se revisa (`motion_check`: salto máximo
+      entre waypoints, altura mínima de la herramienta sobre la mesa), se
+      confirma y se mide. `Cr5RealRobotAdapter` gana `speed_factor`
+      (`SpeedFactor(ratio)` tras `EnableRobot`; nunca probado en este
+      controlador). **Hallazgo:** ensayando el agarre desde home, la IK de
+      PoE convergió a `joint2 = +309°` y la herramienta habría bajado a
+      z = −0,72 m; la revisión lo paró. Corregido en `move_to_pose`: se
+      resuelve desde la postura actual y desde las conocidas, cada
+      solución a la vuelta más cercana, y se elige la que menos mueve
+      (cubre parte de #114 para estos movimientos). La consola aún no
+      revisa en seco: primera pieza del guardián. Vault: "Prueba
+      controlada contra el CR5 real".
       Pendiente: percepción conectada al mundo, modo ROS, servidor MCP
       (capa fina sobre `ToolBox`), tools largas cancelables.
 - [ ] Diseñar la superficie de la API: qué operaciones expone el backend

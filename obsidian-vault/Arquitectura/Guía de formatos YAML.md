@@ -187,6 +187,7 @@ La célula referencia a los elementos y dice cómo se usan. Compilarla (`compile
 | `target` | `sim` \| `real` | no | sim | Dónde está el robot. `--target` lo cambia al lanzar. |
 | `host` | IP | si `real` |  | IP del controlador. |
 | `initial_posture` | nombre | no | todo a 0 | Postura en la que se crea en simulación. En real no se mueve nada al abrir. |
+| `speed_factor` | entero 1-100 | no |  | Solo real: velocidad global en % (`SpeedFactor`). Sin él, la del controlador. |
 
 ### Célula: herramienta
 

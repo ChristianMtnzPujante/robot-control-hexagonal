@@ -33,11 +33,12 @@ class AdapterEntry:
     doc: str
 
 
-def _cr5_tcp(model: RobotModel, host: str) -> RobotConnectorPort:
+def _cr5_tcp(model: RobotModel, host: str, speed_factor=None) -> RobotConnectorPort:
     from robot_node.adapters.cr5_real_adapter import Cr5RealRobotAdapter
 
     limits = list(model.real_joint_limits_degrees) if model.real_joint_limits_degrees else None
-    return Cr5RealRobotAdapter(host, joint_names=list(model.joint_names), joint_limits_degrees=limits)
+    return Cr5RealRobotAdapter(host, joint_names=list(model.joint_names), joint_limits_degrees=limits,
+                               speed_factor=speed_factor)
 
 
 def _coppeliasim_urdf_gripper(tool: ToolModel, port: int, scene: Scene) -> GripperPort:

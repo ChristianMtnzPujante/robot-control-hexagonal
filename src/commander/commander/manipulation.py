@@ -39,7 +39,7 @@ from __future__ import annotations
 
 import math
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Callable, List, Optional, Sequence, Tuple
 
 from shared_kernel import (
@@ -47,6 +47,7 @@ from shared_kernel import (
     GripperPort,
     GripperState,
     JointConfiguration,
+    JointPosition,
     KinematicsPort,
     Point,
     Pose,
@@ -150,6 +151,20 @@ def top_down_quaternion(current: Pose) -> Tuple[float, float, float, float]:
     return _quaternion_from_axes(x_new, y_new, _DOWN)
 
 
+def _nearest_turn(solution: JointConfiguration, reference: JointConfiguration) -> JointConfiguration:
+    """La misma configuración, con cada articulación en la vuelta (±360°)
+    más cercana a `reference`: misma pose, sin girar de más."""
+    positions = []
+    for position in solution.positions:
+        angle, ref = position.angle_radians, reference.angle_of(position.joint_name)
+        positions.append(JointPosition(position.joint_name, ref + math.remainder(angle - ref, 2 * math.pi)))
+    return JointConfiguration.create(positions).value
+
+
+def _max_travel_deg(a: JointConfiguration, b: JointConfiguration) -> float:
+    return max(abs(math.degrees(b.angle_of(p.joint_name) - p.angle_radians)) for p in a.positions)
+
+
 def _offset(pose: Pose, axis: Vector, distance: float) -> Pose:
     """`pose` desplazada `distance` a lo largo de `axis`, misma orientación."""
     return Pose(
@@ -161,6 +176,45 @@ def _offset(pose: Pose, axis: Vector, distance: float) -> Pose:
         pose.qz,
         pose.qw,
     )
+
+
+class RecordingRobot:
+    """`RobotConnectorPort` que no mueve nada: guarda cada waypoint. Base del
+    ensayo en seco (`Manipulator.dry_run`)."""
+
+    def __init__(self, configuration: JointConfiguration):
+        self.configuration = configuration
+        self.waypoints: List[JointConfiguration] = []
+
+    def set_joints(self, configuration: JointConfiguration) -> None:
+        self.configuration = configuration
+        self.waypoints.append(configuration)
+
+    def get_current_configuration(self) -> JointConfiguration:
+        return self.configuration
+
+    def close(self) -> None:
+        pass
+
+
+class _DryRunGripper:
+    """`GripperPort` de ensayo: al cerrar dice que sujeta algo, para poder
+    planificar un `pick` completo sin pinza."""
+
+    def __init__(self):
+        self._state = GripperState(0.0, True, False, 0)
+
+    def activate(self) -> None:
+        pass
+
+    def set_opening(self, fraction: float) -> None:
+        self._state = GripperState(fraction, True, fraction > 0.0, 0)
+
+    def get_state(self) -> GripperState:
+        return self._state
+
+    def close(self) -> None:
+        pass
 
 
 class Manipulator:
@@ -190,6 +244,28 @@ class Manipulator:
         self._step_pause_seconds = step_pause_seconds
         self._log = log
 
+    @property
+    def ik_seeds(self) -> Tuple[JointConfiguration, ...]:
+        return self._ik_seeds
+
+    def dry_run(self) -> Tuple["Manipulator", RecordingRobot]:
+        """Un gemelo de este `Manipulator` con la misma cinemática, ajustes y
+        semillas, pero sobre un robot que solo GRABA, partiendo de la
+        configuración actual. Llamar a una operación sobre el gemelo da los
+        waypoints exactos que mandaría la real (todo es determinista), sin
+        mover nada: es lo que se revisa antes de ejecutar (ver
+        `motion_check.py`)."""
+        recorder = RecordingRobot(self.current_configuration())
+        twin = Manipulator(
+            recorder,
+            _DryRunGripper() if self.gripper is not None else None,
+            self.kinematics,
+            replace(self.settings, gripper_poll_seconds=0.0, gripper_timeout_seconds=0.0),
+            ik_seeds=self._ik_seeds,
+            log=lambda message: None,
+        )
+        return twin, recorder
+
     # --- Brazo ---------------------------------------------------------------
 
     def current_configuration(self) -> JointConfiguration:
@@ -203,29 +279,38 @@ class Manipulator:
         trabajo)."""
         self._play(Trajectory.straight_line(self.current_configuration(), target, steps).waypoints)
 
-    def move_to_pose(self, goal: Pose, steps: int = 50) -> None:
+    def move_to_pose(self, goal: Pose, max_step_deg: float = 2.0) -> None:
         """Movimiento libre a una pose de la brida: IK + interpolación
-        articular. El camino NO es recto; úsalo lejos de la mesa. Si la IK
-        no converge desde la configuración actual, se reintenta desde cada
-        semilla (`ik_seeds`) y se va a la solución en espacio articular."""
+        articular. El camino NO es recto; úsalo lejos de la mesa.
+
+        La IK de PoE es local y puede converger a una solución lejana (con
+        vueltas de más o en otra rama): desde la home del CR5, un `pick`
+        llegó a pedir joint2 = +309°, y la interpolación habría metido la
+        herramienta por debajo de la mesa (cazado en seco por
+        `real_cell_check`, 01/10). Por eso: se resuelve desde la postura
+        actual Y desde cada semilla (`ik_seeds`), cada solución se lleva a
+        la vuelta equivalente más cercana a la actual en cada articulación,
+        y se elige la que MENOS mueve. Se interpola en pasos de como mucho
+        `max_step_deg`."""
         current = self.current_configuration()
-        try:
-            self._play(self.kinematics.compute_trajectory(goal, current).waypoints)
-            return
-        except RuntimeError as first_error:
-            failure = first_error
-        for seed in self._ik_seeds:
+        candidates = []
+        failure: Optional[Exception] = None
+        for seed in (current, *self._ik_seeds):
             try:
-                target = self.kinematics.compute_trajectory(goal, seed).waypoints[-1]
-            except RuntimeError:
+                solution = self.kinematics.compute_trajectory(goal, seed).waypoints[-1]
+            except RuntimeError as error:
+                failure = failure or error
                 continue
-            self._play(Trajectory.straight_line(current, target, steps).waypoints)
-            return
-        raise RuntimeError(
-            f"no hay solución de IK para ({goal.x:+.3f}, {goal.y:+.3f}, {goal.z:+.3f}) ni desde la postura "
-            f"actual ni desde {len(self._ik_seeds)} postura(s) conocida(s): probablemente fuera de alcance. "
-            f"({failure})"
-        )
+            candidates.append(_nearest_turn(solution, current))
+        if not candidates:
+            raise RuntimeError(
+                f"no hay solución de IK para ({goal.x:+.3f}, {goal.y:+.3f}, {goal.z:+.3f}) ni desde la postura "
+                f"actual ni desde {len(self._ik_seeds)} postura(s) conocida(s): probablemente fuera de alcance. "
+                f"({failure})"
+            )
+        target = min(candidates, key=lambda c: _max_travel_deg(current, c))
+        steps = max(1, math.ceil(_max_travel_deg(current, target) / max_step_deg))
+        self._play(Trajectory.straight_line(current, target, steps).waypoints)
 
     def move_linear(self, goal: Pose) -> None:
         """Recta cartesiana de la brida hasta la POSICIÓN de `goal`, con la

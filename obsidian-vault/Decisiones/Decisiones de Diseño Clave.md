@@ -498,6 +498,22 @@ tomes una decisión de este tipo — ver [[Cómo usar este vault (Obsidian)]].
 > que ir a una postura concreta. Coger desde otras direcciones queda para
 > un planificador de agarres. Detalle en [[Roles del Commander]].
 
+> [!tip] (01/10) Revisar en seco antes de mover; y la IK elige la solución que menos mueve
+> **Decisión.** Antes de ejecutar un movimiento contra el robot real, se
+> planifica en seco (`Manipulator.dry_run`: los waypoints exactos, sin
+> mover nada) y se revisa (`motion_check`: salto máximo entre waypoints,
+> altura mínima de la herramienta); solo entonces se pide confirmación y
+> se ejecuta, y después se mide lo alcanzado. Y `move_to_pose` resuelve la
+> IK desde la postura actual y desde cada postura conocida, lleva cada
+> solución a la vuelta más cercana y elige la que menos mueve.
+>
+> **Motivo.** Ensayando `real_cell_check` en simulación, un `pick` desde la
+> home hizo converger la IK de PoE a `joint2 = +309°`: la interpolación
+> habría metido la herramienta 0,72 m por debajo de la mesa. La revisión
+> en seco lo paró. Es la primera pieza del guardián (verify-then-act,
+> F1.6); todavía no está en `CellManager.execute` ni en la consola. Ver
+> [[Prueba controlada contra el CR5 real]].
+
 ## Ver también
 
 - [[Estado del Roadmap]]

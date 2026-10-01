@@ -47,6 +47,7 @@ CELL_ROBOT = Section("Célula: robot", "cell: robot", (
     Field("target", "`sim` | `real`", False, "Dónde está el robot. `--target` lo cambia al lanzar.", "sim"),
     Field("host", "IP", "si `real`", "IP del controlador."),
     Field("initial_posture", "nombre", False, "Postura en la que se crea en simulación. En real no se mueve nada al abrir.", "todo a 0"),
+    Field("speed_factor", "entero 1-100", False, "Solo real: velocidad global en % (`SpeedFactor`). Sin él, la del controlador."),
 ))
 
 CELL_TOOL = Section("Célula: herramienta", "cell: tools[i]", (
@@ -119,6 +120,8 @@ def parse_cell(raw: Any, base_dir: Path = DESCRIPTIONS_DIR / "cells") -> CellDes
             target=robot_data.get("target", "sim"),
             host=robot_data.get("host"),
             initial_posture=robot_data.get("initial_posture"),
+            speed_factor=None if robot_data.get("speed_factor") is None
+            else int(number(robot_data["speed_factor"], "robot.speed_factor")),
         ),
         tools=tuple(tools),
         kinematics=data.get("kinematics", "poe"),
